@@ -13,4 +13,4 @@ main: 		parser.o main.o parser.h
 			gcc $(CFLAGS) parser.o main.o -o main -I.
 
 clean:	
-			rm -rf parser.c lex.yy.c *.o
+			rm -rf parser.c lex.yy.c *.o main
