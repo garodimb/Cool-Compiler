@@ -1,7 +1,8 @@
 
 ASSN = 2
 CLASS= cs143
-CLASSDIR= /usr/class/cs143/cool
+#CLASSDIR= /home/mgarodi/workspace/cool/class/cs143/cool
+CLASSDIR= ../../
 LIB= -lfl
 
 SRC= cool.flex test.cl README 
@@ -73,6 +74,9 @@ clean :
 
 clean-compile:
 	@-rm -f core ${OBJS} cool-lex.cc ${LSRC}
+
+clean-all:
+	-rm -f ${OUTPUT} *.s core ${OBJS} lexer cool-lex.cc *~ parser cgen semant *.cc *.d mycoolc
 
 %.d: %.cc ${SRC} ${LSRC}
 	${SHELL} -ec '${DEPEND} $< | sed '\''s/\($*\.o\)[ :]*/\1 $@ : /g'\'' > $@'
