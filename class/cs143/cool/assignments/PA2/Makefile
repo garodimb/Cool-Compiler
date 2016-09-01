@@ -76,7 +76,7 @@ clean-compile:
 	@-rm -f core ${OBJS} cool-lex.cc ${LSRC}
 
 clean-all:
-	-rm -f ${OUTPUT} *.s core ${OBJS} lexer cool-lex.cc *~ parser cgen semant *.cc *.d mycoolc
+	-rm -f ${OUTPUT} *.s core ${OBJS} lexer cool-lex.cc *~ parser cgen semant *.d mycoolc
 
 %.d: %.cc ${SRC} ${LSRC}
 	${SHELL} -ec '${DEPEND} $< | sed '\''s/\($*\.o\)[ :]*/\1 $@ : /g'\'' > $@'

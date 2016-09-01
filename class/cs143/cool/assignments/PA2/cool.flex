@@ -59,15 +59,59 @@ DARROW          =>
 
 
  /*
-  *  The multiple-character operators.
+  * Operators and Special Characters
   */
-{DARROW}		{ return (DARROW); }
+
+"+"			return '+';
+"-"			return '-';
+"*"			return '*';
+"/"			return '/';
+"<-"		return ASSIGN;
+"<="		return LE;
+"<"			return '<';
+"=>"		return DARROW;
+"="			return '=';
+"@"			return '@';
+"."			return '.';
+"~"			return '~';
+"{"			return '{';
+"}"			return '}';
+"("			return '(';
+")"			return ')';
+";"			return ';';
+":"			return ':';
+","			return ',';
 
  /*
   * Keywords are case-insensitive except for the values true and false,
   * which must begin with a lower-case letter.
   */
 
+[cC][lL][aA][sS]                  return CLASS;
+[eE][lL][sS][eE]                  return ELSE;
+[fF][iI]                          return FI;
+[iI][fF]                          return IF;
+[iI][nN]                          return IN;
+[iI][nN][hH][eE][rR][iI][tT][sS]  return INHERITS;
+[lL][eE][tT]                      return LET;
+[lL][oO][oO][pP]                  return LOOP;
+[pP][oO][oO][lL]                  return POOL;
+[tT][hH][eE][nN]                  return THEN;
+[wW][hH][iI][lL][eE]              return WHILE;
+[cC][aA][sS][eE]                  return CASE;
+[eE][sS][aA][cC]                  return ESAC;
+[oO][fF]                          return OF;
+[nN][eE][wW]                      return NEW;
+[iI][sS][vV][oO][iI][dD]          return ISVOID;
+
+
+ /*
+  * Numbers
+  */
+
+[0-9]+							return INT_CONST;
+[A-Z][a-zA-Z0-9_]*				return TYPEID;
+[a-z][a-zA-Z0-9_]*				return OBJECTID;
 
  /*
   *  String constants (C syntax)
