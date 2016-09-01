@@ -87,7 +87,7 @@ DARROW          =>
   * which must begin with a lower-case letter.
   */
 
-[cC][lL][aA][sS]                  return CLASS;
+[cC][lL][aA][sS][sS]                  return CLASS;
 [eE][lL][sS][eE]                  return ELSE;
 [fF][iI]                          return FI;
 [iI][fF]                          return IF;
@@ -104,14 +104,34 @@ DARROW          =>
 [nN][eE][wW]                      return NEW;
 [iI][sS][vV][oO][iI][dD]          return ISVOID;
 
+t[rR][uU][eE]                    {
+                                  cool_yylval.boolean = true;
+                                  return BOOL_CONST;
+                                 }
+
+f[aA][lL][sS][eE]                {
+                                  cool_yylval.boolean = false;
+                                  return BOOL_CONST;
+                                 }
 
  /*
   * Numbers
   */
 
-[0-9]+							return INT_CONST;
-[A-Z][a-zA-Z0-9_]*				return TYPEID;
-[a-z][a-zA-Z0-9_]*				return OBJECTID;
+[0-9]+                           {
+                                   cool_yylval.symbol = inttable.add_string(yytext);
+                                   return INT_CONST;
+                                 }
+
+[A-Z][a-zA-Z0-9_]*               {
+                                   cool_yylval.symbol = idtable.add_string(yytext);
+                                   return TYPEID;
+                                 }
+
+[a-z][a-zA-Z0-9_]*               {
+                                   cool_yylval.symbol = idtable.add_string(yytext);
+                                   return OBJECTID;
+                                 }
 
  /*
   *  String constants (C syntax)
