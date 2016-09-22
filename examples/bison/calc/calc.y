@@ -1,44 +1,49 @@
+/* Simple infix calculator parser */
 
-/* C code declarations */
 %{
 	#include <stdio.h>
 	#include <math.h>
 	#include <ctype.h>
 	int yylex(void);
-	void yyerror(char const *);
+	void yyerror(char const *);	
 %}
 
 %define api.value.type{double}
 %token NUM
+%left '+' '-'
+%left '*' '/'
+%precedence NEG /* Unnary minus operator */
+%right '^'
 
-%% 
+%%
 
-/* Grammmar rules */
+/* Grammar rules for infix calculator */
 
 input:
 	%empty
-	| input line	
+	| input line
 	;
 
 line:
 	'\n'
-	| exp '\n' { printf("%.10g",$1); }
+	| exp '\n' { printf("Ans: %.10g\n",$1); }
 	;
 
 exp:
-	NUM				{ $$ = $1; }
-	| exp exp '+' 	{ $$ = $1 + $2; }
-	| exp exp '-'	{ $$ = $1 - $2; }
-	| exp exp '*'	{ $$ = $1 * $2; }
-	| exp exp '/'	{ $$ = $1 / $2; }
-	| exp exp '^'	{ $$ = pow($1,$2); }
-	| exp 'n'		{ $$ = -$1; }
+	NUM
+	| exp '+' exp { $$ = $1 + $3; }
+	| exp '-' exp { $$ = $1 - $3; }
+	| exp '*' exp { $$ = $1 * $3; }
+	| exp '/' exp { $$ = $1 / $3; }
+	| exp '^' exp { $$ = pow($1,$3); }
+	| '-' exp %prec NEG { $$ = -$2; }
+	| '(' exp ')'	{ $$ = $2; }
 	;
+
 %%
 
 int yylex (void)
-{
-  int c;
+{  int c;
 
   /* Skip white space.  */
   while ((c = getchar ()) == ' ' || c == '\t')
