@@ -135,10 +135,25 @@
     %type <class_> class
     
     /* You will want to change the following line. */
-    %type <features> dummy_feature_list
+    %type <features> 		feature_list
+    %type <feature> 		feature
+    %type <formals>			formal_list
+    %type <formal>			formal
+    %type <exprressions> 	expr_list
+    %type <expression>		expr
     
     /* Precedence declarations go here. */
     
+    %right		ASSIGN
+    %left 		NOT
+    %left		LE '<' '='
+    %left 		'+'	'-'
+    %left		'*'	'/'
+    %left 		ISVOID
+    %left 		'~'
+    %left 		'@'
+    %left 		'.'
+
     
     %%
     /* 
@@ -157,18 +172,186 @@
     ;
     
     /* If no parent is specified, the class inherits from the Object class. */
-    class	: CLASS TYPEID '{' dummy_feature_list '}' ';'
+    class	: CLASS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,idtable.add_string("Object"),$4,
     stringtable.add_string(curr_filename)); }
-    | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
+    | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
     ;
     
     /* Feature list may be empty, but no empty features in list. */
-    dummy_feature_list:		/* empty */
+    feature_list:		/* empty */
     {  $$ = nil_Features(); }
+    | feature_list feature
+    {}
+    ;
     
-    
+    /* Rules for class features */
+    feature: OBJECTID '(' ')' ':' TYPEID '{' expr '}'
+    {
+	/* Method without parameter */
+    }
+    |
+    OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}'
+    {
+	/* Method with one or more than one parameter */
+    }
+    | OBJECTID ':' TYPEID
+    {
+	/* Variable without initialization */
+    }
+    | OBJECTID ':' TYPEID ASSIGN expr
+    {
+	/* Variable with initialization */
+    }
+    ;
+
+    /* Rules for formal parameters (one or more) */
+    formal_list: formal
+    {
+	/* Single formal parameters */
+    }
+    | formal_list ',' formal
+    {
+	/* More than 1 formal parameters */
+    }
+    ;
+
+    /* Individual formal parameter (Cannot be empty as we already handled condition for it)*/
+    formal:	OBJECTID ':' TYPEID
+    {
+
+    }
+    ;
+
+    /* Rules for expression list */
+    /* Note: Check for validity of all these expr_list and its effect on some another function */
+    expr_list:	expr
+    {
+	/* empty expression */
+    }
+    | expr_list ',' expr
+    {
+	/* One or more than one expression */
+    }
+    | expr ';'
+    {
+
+    }
+    |
+    expr_list expr ';'
+    {
+
+    }
+    ;
+
+    /* Rules for individual expression */
+    expr: OBJECTID ASSIGN expr
+    {
+	/* Assignment */
+    }
+    | expr '.' OBJECTID '(' ')'
+    {
+	/* Method call without parameter(Object) */
+    }
+    | expr '.' OBJECTID '(' expr_list ')'
+    {
+	/* Method call with one or more parameter(Object) */
+    }
+    | expr '@' TYPEID '.' OBJECTID '(' ')'
+    {
+	/* Method call without parameter(Object) */
+    }
+    | expr '@' TYPEID '.' OBJECTID '(' expr_list ')'
+    {
+	/* Method call with one or more parameter(Object) */
+    }
+    | OBJECTID '(' ')'
+    {
+	/* Method call without parameter */
+    }
+    | OBJECTID '(' expr_list ')'
+    {
+	/* Method call with one or more parameter */
+    }
+    | IF expr THEN expr ELSE expr FI
+    {
+	/* If-then-else */
+    }
+    | WHILE expr LOOP expr POOL
+    {
+	/* Loop */
+    }
+    | '{' expr_list '}'
+    {
+	/* Block */
+    }
+    | NEW TYPEID
+    {
+	/* Dynamic memory allocation */
+    }
+    | ISVOID expr
+    {
+	/* Does expression evaluates to void */
+    }
+    | expr '+'	expr
+    {
+	/* Addition */
+    }
+    | expr '-'	expr
+    {
+	/* Subtraction */
+    }
+    | expr '*'	expr
+    {
+	/* Multiplication */
+    }
+    | expr '/'	expr
+    {
+	/* Division */
+    }
+    | '~' expr
+    {
+	/* Compliment of ineteger */
+    }
+    | expr '<'	expr
+    {
+	/* Less than */
+    }
+    | expr LE expr
+    {
+	/* Less than eqaul to */
+    }
+    | expr '=' expr
+    {
+	/* Eqaul to */
+    }
+    | NOT expr
+    {
+	/* Logical negation of expr */
+    }
+    | '(' expr ')'
+    {
+
+    }
+    | OBJECTID
+    {
+
+    }
+    | INT_CONST
+    {
+	/* Integer constant */
+    }
+    | STR_CONST
+    {
+	/* String constat */
+    }
+    | BOOL_CONST
+    {
+    /* True and False */
+    }
+    ;
+
     /* end of grammar */
     %%
     

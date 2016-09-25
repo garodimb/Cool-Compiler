@@ -8,8 +8,9 @@
 	void yyerror(char const *);	
 %}
 
-%define api.value.type{double}
-%token NUM
+%define api.value.type	union
+%token <double> NUM 
+%type <double> exp
 %left '+' '-'
 %left '*' '/'
 %precedence NEG /* Unnary minus operator */
@@ -27,6 +28,7 @@ input:
 line:
 	'\n'
 	| exp '\n' { printf("Ans: %.10g\n",$1); }
+	| error '\n'	{ yyerrok; }
 	;
 
 exp:
