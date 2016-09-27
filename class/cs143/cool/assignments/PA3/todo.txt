@@ -1,0 +1,11 @@
+1. Add 
+	let ID : TYPE [ <- expr ] [[, ID : TYPE [ <- expr ]]] ∗ in expr
+	and 
+	case expr of [[ID : TYPE => expr; ]] + esac
+
+2. Add two different types of expression list
+	* Separated by ';'
+	* Separated by ','
+
+3. Check rules of expr and other parameters very carefully
+4. Remove shift/reduce conflict
