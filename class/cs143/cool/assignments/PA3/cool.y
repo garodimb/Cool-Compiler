@@ -139,7 +139,7 @@
     %type <feature> 		feature
     %type <formals>			formal_list
     %type <formal>			formal
-    %type <exprressions> 	expr_list
+    %type <expressions> 	expr_list
     %type <expression>		expr
     
     /* Precedence declarations go here. */
@@ -182,27 +182,33 @@
     /* Feature list may be empty, but no empty features in list. */
     feature_list:		/* empty */
     {  $$ = nil_Features(); }
-    | feature_list feature
-    {}
+    | feature_list feature ';'
+    {
+        $$ = append_Features($1,single_Features($2));
+    }
     ;
     
     /* Rules for class features */
     feature: OBJECTID '(' ')' ':' TYPEID '{' expr '}'
     {
 	/* Method without parameter */
+        $$ = method($1,nil_Formals(),$5,$7);
     }
     |
     OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}'
     {
 	/* Method with one or more than one parameter */
+        $$ = method($1,$3,$6,$8);
     }
     | OBJECTID ':' TYPEID
     {
 	/* Variable without initialization */
+        $$ = attr($1,$3,no_expr());
     }
     | OBJECTID ':' TYPEID ASSIGN expr
     {
 	/* Variable with initialization */
+        $$ = attr($1,$3,$5);
     }
     ;
 
@@ -210,17 +216,20 @@
     formal_list: formal
     {
 	/* Single formal parameters */
+        $$ = single_Formals($1);
+
     }
     | formal_list ',' formal
     {
 	/* More than 1 formal parameters */
+        $$ = append_Formals($1,single_Formals($3));
     }
     ;
 
     /* Individual formal parameter (Cannot be empty as we already handled condition for it)*/
     formal:	OBJECTID ':' TYPEID
     {
-
+        $$ = formal($1,$3);
     }
     ;
 
@@ -228,20 +237,21 @@
     /* Note: Check for validity of all these expr_list and its effect on some another function */
     expr_list:	expr
     {
-	/* empty expression */
+	/* Single expression */
+        $$ = single_Expressions($1);
     }
     | expr_list ',' expr
     {
 	/* One or more than one expression */
+        $$ = append_Expressions($1,single_Expressions($3));
     }
     | expr ';'
     {
-
+        $$ = single_Expressions($1);
     }
-    |
-    expr_list expr ';'
+    | expr_list expr ';'
     {
-
+         $$ = append_Expressions($1,single_Expressions($2));
     }
     ;
 
@@ -249,106 +259,130 @@
     expr: OBJECTID ASSIGN expr
     {
 	/* Assignment */
+        $$ = assign($1,$3);
     }
     | expr '.' OBJECTID '(' ')'
     {
-	/* Method call without parameter(Object) */
+	/* dispatch: Method call without parameter(Object) */
+        $$ = dispatch($1,$3,nil_Expressions());
     }
     | expr '.' OBJECTID '(' expr_list ')'
     {
-	/* Method call with one or more parameter(Object) */
+	/* dispatch : Method call with one or more parameter(Object) */
+        $$ = dispatch($1,$3,$5);
     }
     | expr '@' TYPEID '.' OBJECTID '(' ')'
     {
-	/* Method call without parameter(Object) */
+	/* static dispatch: Method call without parameter(Object) */
+        $$ = static_dispatch($1,$3,$5,nil_Expressions());
     }
     | expr '@' TYPEID '.' OBJECTID '(' expr_list ')'
     {
-	/* Method call with one or more parameter(Object) */
+	/* static dispatch: Method call with one or more parameter(Object) */
+        $$ = static_dispatch($1,$3,$5,$7);
     }
     | OBJECTID '(' ')'
     {
 	/* Method call without parameter */
+        $$ = dispatch(object(idtable.add_string("self")),$1,nil_Expressions());
     }
     | OBJECTID '(' expr_list ')'
     {
 	/* Method call with one or more parameter */
+        $$ = dispatch(object(idtable.add_string("self")),$1,$3);
     }
     | IF expr THEN expr ELSE expr FI
     {
 	/* If-then-else */
+        $$ = cond($2,$4,$6);
     }
     | WHILE expr LOOP expr POOL
     {
 	/* Loop */
+        $$ = loop($2,$4);
     }
     | '{' expr_list '}'
     {
 	/* Block */
+        $$ = block($2);
     }
     | NEW TYPEID
     {
 	/* Dynamic memory allocation */
+        $$ = new_($2);
     }
     | ISVOID expr
     {
 	/* Does expression evaluates to void */
+        $$ = isvoid($2);
     }
     | expr '+'	expr
     {
 	/* Addition */
+        $$ = plus($1,$3);
     }
     | expr '-'	expr
     {
 	/* Subtraction */
+         $$ = sub($1,$3);
     }
     | expr '*'	expr
     {
 	/* Multiplication */
+         $$ = mul($1,$3);
     }
     | expr '/'	expr
     {
 	/* Division */
+         $$ = divide($1,$3);
     }
     | '~' expr
     {
 	/* Compliment of ineteger */
+        $$ = neg($2);
     }
     | expr '<'	expr
     {
 	/* Less than */
+        $$ = lt($1,$3);
     }
     | expr LE expr
     {
 	/* Less than eqaul to */
+        $$ = leq($1,$3);
     }
     | expr '=' expr
     {
 	/* Eqaul to */
+        $$ = eq($1,$3);
     }
     | NOT expr
     {
 	/* Logical negation of expr */
+        $$ = comp($2);
     }
     | '(' expr ')'
     {
-
+        $$ = $2;
     }
     | OBJECTID
     {
-
+        $$ = object($1);
     }
     | INT_CONST
     {
 	/* Integer constant */
+        $$ = int_const($1);
     }
     | STR_CONST
     {
 	/* String constat */
+        $$ = string_const($1);
     }
     | BOOL_CONST
     {
     /* True and False */
+        $$ = bool_const($1);
     }
     ;
 
