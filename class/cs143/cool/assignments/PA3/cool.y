@@ -85,6 +85,7 @@
     int omerrs = 0;               /* number of errors in lexing and parsing */
     %}
 
+    %expect 9
     /* A union of all the types that can be the result of parsing actions. */
     %union {
       Boolean boolean;
@@ -146,16 +147,15 @@
     %type <expression>   expr
     %type <expression>   let_stmt
 
-
     /* Precedence declarations go here. */
 
     %right		ASSIGN
-    %left 		NOT
-    %left		LE '<' '='
+    %nonassoc 	NOT
+    %nonassoc	LE '<' '='
     %left 		'+'	'-'
     %left		'*'	'/'
-    %left 		ISVOID
-    %left 		'~'
+    %nonassoc 	ISVOID
+    %nonassoc 	'~'
     %left 		'@'
     %left 		'.'
 
@@ -339,14 +339,6 @@
      /* Block */
      $$ = block($2);
     }
-    | LET OBJECTID ':' TYPEID IN expr /* This rule causing 9 S/R conflicts */
-    {
-     $$ = let($2,$4,no_expr(),$6);
-    }
-    | LET OBJECTID ':' TYPEID ASSIGN expr IN expr /* This rule causing 9 S/R conflicts */
-    {
-     $$ = let($2,$4,$6,$8);
-    }
     | LET OBJECTID ':' TYPEID let_stmt
     {
      $$ = let($2,$4,no_expr(),$5);
@@ -451,13 +443,9 @@
     {
      $$ = let($2,$4,$6,$7);
     }
-    | ',' OBJECTID ':' TYPEID IN expr
+    | IN expr
     {
-     $$ = let($2,$4,no_expr(),$6);
-    }
-    | ',' OBJECTID ':' TYPEID ASSIGN expr IN expr
-    {
-     $$ = let($2,$4,$6,$8);
+	 $$ = $2;
     }
     ;
 

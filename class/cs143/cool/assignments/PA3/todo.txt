@@ -1,2 +1,5 @@
-1. Add rules for multiple type declaration in let
-2. Remove S/R errors due to let
+1. Remove S/R conflits due to LET
+2. Add error handling capability
+3. Add command line updates
+
+static_dispatch
