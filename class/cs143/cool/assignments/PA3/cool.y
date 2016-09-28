@@ -144,6 +144,7 @@
     %type <expressions>  expr_list
     %type <expressions>  expr_block
     %type <expression>   expr
+    %type <expression>   let_stmt
 
 
     /* Precedence declarations go here. */
@@ -320,114 +321,143 @@
     }
     | OBJECTID '(' expr_list ')'
     {
-	/* Method call with one or more parameter */
-        $$ = dispatch(object(idtable.add_string("self")),$1,$3);
+	 /* Method call with one or more parameter */
+     $$ = dispatch(object(idtable.add_string("self")),$1,$3);
     }
     | IF expr THEN expr ELSE expr FI
     {
-	/* If-then-else */
-        $$ = cond($2,$4,$6);
+     /* If-then-else */
+     $$ = cond($2,$4,$6);
     }
     | WHILE expr LOOP expr POOL
     {
-	/* Loop */
-        $$ = loop($2,$4);
+     /* Loop */
+     $$ = loop($2,$4);
     }
     | '{' expr_block '}'
     {
-	/* Block */
-        $$ = block($2);
+     /* Block */
+     $$ = block($2);
     }
     | LET OBJECTID ':' TYPEID IN expr /* This rule causing 9 S/R conflicts */
     {
-    	$$ = let($2,$4,no_expr(),$6);
+     $$ = let($2,$4,no_expr(),$6);
     }
     | LET OBJECTID ':' TYPEID ASSIGN expr IN expr /* This rule causing 9 S/R conflicts */
     {
-    	$$ = let($2,$4,$6,$8);
+     $$ = let($2,$4,$6,$8);
+    }
+    | LET OBJECTID ':' TYPEID let_stmt
+    {
+     $$ = let($2,$4,no_expr(),$5);
+    }
+    | LET OBJECTID ':' TYPEID ASSIGN expr let_stmt
+    {
+     $$ = let($2,$4,$6,$7);
     }
     | CASE expr OF case_list ESAC
     {
-    /* Case block */
-    $$ = typcase($2,$4);
+     /* Case block */
+     $$ = typcase($2,$4);
     }
     | NEW TYPEID
     {
-	/* Dynamic memory allocation */
-        $$ = new_($2);
+	 /* Dynamic memory allocation */
+	 $$ = new_($2);
     }
     | ISVOID expr
     {
-	/* Does expression evaluates to void */
-        $$ = isvoid($2);
+	 /* Does expression evaluates to void */
+	 $$ = isvoid($2);
     }
     | expr '+'	expr
     {
-	/* Addition */
-        $$ = plus($1,$3);
+	 /* Addition */
+	 $$ = plus($1,$3);
     }
     | expr '-'	expr
     {
-	/* Subtraction */
-         $$ = sub($1,$3);
+	 /* Subtraction */
+	 $$ = sub($1,$3);
     }
     | expr '*'	expr
     {
-	/* Multiplication */
-         $$ = mul($1,$3);
+	 /* Multiplication */
+	 $$ = mul($1,$3);
     }
     | expr '/'	expr
     {
-	/* Division */
-         $$ = divide($1,$3);
+	 /* Division */
+	 $$ = divide($1,$3);
     }
     | '~' expr
     {
-	/* Compliment of ineteger */
-        $$ = neg($2);
+	 /* Compliment of ineteger */
+	 $$ = neg($2);
     }
     | expr '<'	expr
     {
-	/* Less than */
-        $$ = lt($1,$3);
+	 /* Less than */
+	 $$ = lt($1,$3);
     }
     | expr LE expr
     {
-	/* Less than eqaul to */
-        $$ = leq($1,$3);
+	 /* Less than eqaul to */
+	 $$ = leq($1,$3);
     }
     | expr '=' expr
     {
-	/* Eqaul to */
-        $$ = eq($1,$3);
+	 /* Eqaul to */
+	 $$ = eq($1,$3);
     }
     | NOT expr
     {
-	/* Logical negation of expr */
-        $$ = comp($2);
+	 /* Logical negation of expr */
+	 $$ = comp($2);
     }
     | '(' expr ')'
     {
-        $$ = $2;
+     /* Expression in paranthesis */
+     $$ = $2;
     }
     | OBJECTID
     {
-        $$ = object($1);
+     /* Identifier for object */
+     $$ = object($1);
     }
     | INT_CONST
     {
-	/* Integer constant */
-        $$ = int_const($1);
+     /* Integer constant */
+     $$ = int_const($1);
     }
     | STR_CONST
     {
-	/* String constat */
-        $$ = string_const($1);
+     /* String constat */
+     $$ = string_const($1);
     }
     | BOOL_CONST
     {
-    /* True and False */
-        $$ = bool_const($1);
+     /* True and False */
+     $$ = bool_const($1);
+    }
+    ;
+
+    /* For accepting two or more variable declaration in let */
+    let_stmt: ',' OBJECTID ':' TYPEID let_stmt
+    {
+     $$ = let($2,$4,no_expr(),$5);
+    }
+    | ',' OBJECTID ':' TYPEID ASSIGN expr let_stmt
+    {
+     $$ = let($2,$4,$6,$7);
+    }
+    | ',' OBJECTID ':' TYPEID IN expr
+    {
+     $$ = let($2,$4,no_expr(),$6);
+    }
+    | ',' OBJECTID ':' TYPEID ASSIGN expr IN expr
+    {
+     $$ = let($2,$4,$6,$8);
     }
     ;
 
