@@ -158,7 +158,6 @@
     %nonassoc 	'~'
     %left 		'@'
     %left 		'.'
-
     %%
     /*
     Save the root of the abstract syntax tree in a global variable.
@@ -195,6 +194,11 @@
     | feature_list feature ';'
     {
      $$ = append_Features($1,single_Features($2));
+    }
+    | feature_list error ';'
+    {
+      yyclearin;
+      yyerrok;
     }
     ;
 
@@ -286,6 +290,12 @@
     {
      $$ = append_Expressions($1,single_Expressions($2));
     }
+    | error ';'
+    {
+      yyclearin;
+      cerr << "[ERROR] Error in expression" << endl;
+      yyerrok;
+    }
     ;
 
     /* Rules for individual expression */
@@ -328,6 +338,14 @@
     {
      /* If-then-else */
      $$ = cond($2,$4,$6);
+    }
+    | IF expr THEN expr error FI
+    {
+      /* Missing else expression */
+        cerr << "[ERROR] May be missing else expression" << endl;
+        yyclearin;
+        yyerrok;
+
     }
     | WHILE expr LOOP expr POOL
     {
@@ -412,6 +430,13 @@
      /* Expression in paranthesis */
      $$ = $2;
     }
+    | '(' error ')'
+    {
+      /* Whole expression is error start from next expression */
+        cerr << "[ERROR] Error in ()" << endl;
+        yyclearin;
+        yyerrok;
+    }
     | OBJECTID
     {
      /* Identifier for object */
@@ -462,7 +487,6 @@
       print_cool_token(yychar);
       cerr << endl;
       omerrs++;
-
       if(omerrs>50) {fprintf(stdout, "More than 50 errors\n"); exit(1);}
     }
 
