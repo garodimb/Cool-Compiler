@@ -214,6 +214,12 @@
 	 /* Method with one or more than one parameter */
 	 $$ = method($1,$3,$6,$8);
     }
+    | OBJECTID '(' error ')' ':' TYPEID '{' expr '}'
+    {
+      cerr << "[ERROR] Error in formal parameter declaration" << endl;
+      yyclearin;
+      yyerrok;
+    }
     | OBJECTID ':' TYPEID
     {
      /* Variable without initialization */
