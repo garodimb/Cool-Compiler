@@ -11,7 +11,10 @@
 
 #include "tree.h"
 #include "cool-tree.handcode.h"
+#include "symtab.h"
 
+typedef SymbolTable<Symbol,Feature_class> MethodTable;
+typedef SymbolTable<Symbol,Symbol> ObjectTable;
 
 // define the class for phylum
 // define simple phylum - Program
@@ -38,6 +41,9 @@ public:
    virtual Symbol getParent() = 0;
    virtual Features getFeatures() = 0;
    virtual Symbol getFileName() = 0;
+   virtual void install_symbols() = 0;
+   virtual ObjectTable *getObjectTable() = 0;
+   virtual MethodTable *getMethodTable() = 0;
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
@@ -52,6 +58,7 @@ typedef class Feature_class *Feature;
 
 class Feature_class : public tree_node {
 public:
+   virtual void install_symbols() = 0;
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
 
@@ -149,7 +156,6 @@ public:
 #endif
 };
 
-
 // define constructor - class_
 class class__class : public Class__class {
 protected:
@@ -157,12 +163,16 @@ protected:
    Symbol parent;
    Features features;
    Symbol filename;
+   MethodTable *method_table;
+   ObjectTable* object_table;
 public:
    class__class(Symbol a1, Symbol a2, Features a3, Symbol a4) {
       name = a1;
       parent = a2;
       features = a3;
       filename = a4;
+      method_table = new MethodTable();
+      object_table = new ObjectTable();
    }
    Class_ copy_Class_();
 
@@ -170,6 +180,9 @@ public:
    Symbol getParent() { return parent; }
    Features getFeatures() { return features; }
    Symbol getFileName() { return filename; }
+   MethodTable *getMethodTable() { return method_table; }
+   ObjectTable *getObjectTable() { return object_table; }
+   void install_symbols();
    void dump(ostream& stream, int n);
 
 #ifdef Class__SHARED_EXTRAS
@@ -195,6 +208,7 @@ public:
       return_type = a3;
       expr = a4;
    }
+   void install_symbols();
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
@@ -219,6 +233,7 @@ public:
       type_decl = a2;
       init = a3;
    }
+   void install_symbols();
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 

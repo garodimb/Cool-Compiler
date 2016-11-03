@@ -12,6 +12,7 @@
 #define FALSE 0
 
 class ClassTable;
+typedef SymbolTable<Symbol,Class__class> ClassSymTable;
 typedef ClassTable *ClassTableP;
 
 // This is a structure that may be used to contain the semantic
@@ -22,13 +23,15 @@ typedef ClassTable *ClassTableP;
 class ClassTable {
 private:
   int semant_errors;
-  void install_classes(Classes classes);
+  ClassSymTable *class_symtable;
   void install_basic_classes();
-  SymbolTable<Symbol,Class__class> class_symtable;
+  void install_basic_symbols();
   ostream& error_stream;
 
 public:
   ClassTable(Classes);
+  void install_classes(Classes classes);
+  void install_symbols(Classes classes);
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);

@@ -46,6 +46,10 @@ static Symbol
     substr,
     type_name,
     val;
+
+/* Keep pointer to curr_class and classTable */
+static ClassTable* classtable;
+static Class_ curr_class;
 //
 // Initializing the predefined symbols.
 //
@@ -82,12 +86,12 @@ static void initialize_constants(void)
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
-	install_classes(classes);
+	class_symtable = new ClassSymTable;
 }
 
 void ClassTable::install_classes(Classes classes){
 
-	class_symtable.enterscope();
+	class_symtable->enterscope();
 
 	/* Install perdefined classes in class_symbol table */
 	install_basic_classes();
@@ -103,12 +107,12 @@ void ClassTable::install_classes(Classes classes){
 			err_stream << "Class name " << class_name << " is not allowed" << endl;
 		}
 		/* Check whether class_name class is already defined */
-		else if(class_symtable.lookup(class_name)!=NULL){
+		else if(class_symtable->lookup(class_name)!=NULL){
 			ostream &err_stream = semant_error(class_);
 			err_stream << "Class " << class_name << " is already defined" << endl;
 		}
 		else{
-			class_symtable.addid(class_->getName(),class_);
+			class_symtable->addid(class_->getName(),class_);
 		}
 	}
 
@@ -117,7 +121,7 @@ void ClassTable::install_classes(Classes classes){
 		Class_ class_ = classes->nth(i);
 		Symbol parent_name = class_->getParent();
 		Symbol class_name = class_->getName();
-		if(class_symtable.lookup(parent_name)==NULL){
+		if(class_symtable->lookup(parent_name)==NULL){
 			ostream &err_stream = semant_error(class_);
 			err_stream << "Undefined class " << parent_name << endl;
 		}
@@ -128,15 +132,74 @@ void ClassTable::install_classes(Classes classes){
 	}
 
 	/* Check whether Main class exists and has main method defined in it */
-	if(class_symtable.lookup(Main)==NULL){
+	if(class_symtable->lookup(Main)==NULL){
 		ostream& err_stream = semant_error();
 		err_stream << "Class Main is not defined." << endl;
 	}
 	else{
 		/* Check whether main method exists */
 	}
-	class_symtable.exitscope();
+	class_symtable->exitscope();
 	}
+
+/* Install symbols from different classes to symbol_table and method_table */
+void ClassTable::install_symbols(Classes classes){
+	install_basic_symbols();
+	Class_ class_;
+	for(int i = classes->first(); classes->more(i); i = classes->next(i)){
+		class_ = classes->nth(i);
+		class_->install_symbols();
+	}
+}
+
+/* Traverse each class and then install every available features */
+void class__class::install_symbols(){
+	object_table->enterscope();
+	method_table->enterscope();
+	curr_class = this;
+	for(int i = features->first(); features->more(i); i = features->next(i)){
+		features->nth(i)->install_symbols();
+	}
+	method_table->exitscope();
+	object_table->exitscope();
+}
+
+void method_class::install_symbols(){
+	MethodTable *method_table = curr_class->getMethodTable();
+	if(name==self){
+		ostream& err_stream = classtable->semant_error(curr_class);
+		err_stream << "Method " << name << " is not allowed." << endl;
+	}
+	else if(method_table->probe(name)!=NULL){
+		ostream& err_stream = classtable->semant_error(curr_class);
+		err_stream << "Method " << name << " is multiply defined in class." << endl;
+	}
+	else{
+		method_table->addid(name,this);
+	}
+
+}
+
+void attr_class::install_symbols(){
+	ObjectTable *object_table = curr_class->getObjectTable();
+	if(name==self){
+		ostream& err_stream = classtable->semant_error(curr_class);
+		err_stream << "Varible " << name << " is not allowed" << endl;
+	}
+	else if(object_table->probe(name)!=NULL){
+		ostream& err_stream = classtable->semant_error(curr_class);
+		err_stream << "Attribute " << name << " is multiply defined in class." << endl;
+	}
+	else{
+		object_table->addid(name,new Symbol(type_decl));
+	}
+}
+
+void ClassTable::install_basic_symbols(){
+
+}
+
+
 void ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
@@ -170,7 +233,7 @@ void ClassTable::install_basic_classes() {
 					       single_Features(method(type_name, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(copy, nil_Formals(), SELF_TYPE, no_expr()))),
 	       filename);
-	class_symtable.addid(Object,Object_class);
+	class_symtable->addid(Object,Object_class);
     // 
     // The IO class inherits from Object. Its methods are
     //        out_string(Str) : SELF_TYPE       writes a string to the output
@@ -191,7 +254,7 @@ void ClassTable::install_basic_classes() {
 					       single_Features(method(in_string, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(in_int, nil_Formals(), Int, no_expr()))),
 	       filename);  
-	class_symtable.addid(IO,IO_class);
+	class_symtable->addid(IO,IO_class);
     //
     // The Int class has no methods and only a single attribute, the
     // "val" for the integer. 
@@ -201,13 +264,13 @@ void ClassTable::install_basic_classes() {
 	       Object,
 	       single_Features(attr(val, prim_slot, no_expr())),
 	       filename);
-	class_symtable.addid(Int,Int_class);
+	class_symtable->addid(Int,Int_class);
     //
     // Bool also has only the "val" slot.
     //
     Class_ Bool_class =
 	class_(Bool, Object, single_Features(attr(val, prim_slot, no_expr())),filename);
-	class_symtable.addid(Bool,Bool_class);
+	class_symtable->addid(Bool,Bool_class);
     //
     // The class Str has a number of slots and operations:
     //       val                                  the length of the string
@@ -236,7 +299,7 @@ void ClassTable::install_basic_classes() {
 						      Str, 
 						      no_expr()))),
 	       filename);
-	class_symtable.addid(Str,Str_class);
+	class_symtable->addid(Str,Str_class);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -292,9 +355,10 @@ void program_class::semant()
 
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
-
+    ::classtable = classtable;
     /* some semantic analysis code may go here */
-
+    classtable->install_classes(classes);
+    classtable->install_symbols(classes);
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
