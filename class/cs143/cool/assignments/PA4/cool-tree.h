@@ -33,6 +33,11 @@ typedef class Class__class *Class_;
 
 class Class__class : public tree_node {
 public:
+
+   virtual Symbol getName() = 0;
+   virtual Symbol getParent() = 0;
+   virtual Features getFeatures() = 0;
+   virtual Symbol getFileName() = 0;
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
@@ -160,6 +165,11 @@ public:
       filename = a4;
    }
    Class_ copy_Class_();
+
+   Symbol getName() { return name; }
+   Symbol getParent() { return parent; }
+   Features getFeatures() { return features; }
+   Symbol getFileName() { return filename; }
    void dump(ostream& stream, int n);
 
 #ifdef Class__SHARED_EXTRAS

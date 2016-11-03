@@ -81,14 +81,62 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
-
-
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
-
-    /* Fill this in */
-
+	install_classes(classes);
 }
 
+void ClassTable::install_classes(Classes classes){
+
+	class_symtable.enterscope();
+
+	/* Install perdefined classes in class_symbol table */
+	install_basic_classes();
+
+	/* Install user defined classes in class_symtable */
+    for(int i = classes->first(); classes->more(i); i = classes->next(i)){
+		Class_ class_ = classes->nth(i);
+		Symbol class_name = class_->getName();
+
+		/* Check whether class_name is valid */
+		if(class_name == SELF_TYPE){
+			ostream &err_stream = semant_error(class_);
+			err_stream << "Class name " << class_name << " is not allowed" << endl;
+		}
+		/* Check whether class_name class is already defined */
+		else if(class_symtable.lookup(class_name)!=NULL){
+			ostream &err_stream = semant_error(class_);
+			err_stream << "Class " << class_name << " is already defined" << endl;
+		}
+		else{
+			class_symtable.addid(class_->getName(),class_);
+		}
+	}
+
+	/* Check whether parent of each class is already defined */
+	for(int i = classes->first(); classes->more(i); i = classes->next(i)){
+		Class_ class_ = classes->nth(i);
+		Symbol parent_name = class_->getParent();
+		Symbol class_name = class_->getName();
+		if(class_symtable.lookup(parent_name)==NULL){
+			ostream &err_stream = semant_error(class_);
+			err_stream << "Undefined class " << parent_name << endl;
+		}
+		else if(parent_name == Bool || parent_name == Int || parent_name == Str || parent_name == SELF_TYPE){
+			ostream &err_stream = semant_error(class_);
+			err_stream << "Class " << class_name << " cannot inherit class " << parent_name << "." << endl;
+		}
+	}
+
+	/* Check whether Main class exists and has main method defined in it */
+	if(class_symtable.lookup(Main)==NULL){
+		ostream& err_stream = semant_error();
+		err_stream << "Class Main is not defined." << endl;
+	}
+	else{
+		/* Check whether main method exists */
+	}
+	class_symtable.exitscope();
+	}
 void ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
@@ -122,7 +170,7 @@ void ClassTable::install_basic_classes() {
 					       single_Features(method(type_name, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(copy, nil_Formals(), SELF_TYPE, no_expr()))),
 	       filename);
-
+	class_symtable.addid(Object,Object_class);
     // 
     // The IO class inherits from Object. Its methods are
     //        out_string(Str) : SELF_TYPE       writes a string to the output
@@ -143,7 +191,7 @@ void ClassTable::install_basic_classes() {
 					       single_Features(method(in_string, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(in_int, nil_Formals(), Int, no_expr()))),
 	       filename);  
-
+	class_symtable.addid(IO,IO_class);
     //
     // The Int class has no methods and only a single attribute, the
     // "val" for the integer. 
@@ -153,13 +201,13 @@ void ClassTable::install_basic_classes() {
 	       Object,
 	       single_Features(attr(val, prim_slot, no_expr())),
 	       filename);
-
+	class_symtable.addid(Int,Int_class);
     //
     // Bool also has only the "val" slot.
     //
     Class_ Bool_class =
 	class_(Bool, Object, single_Features(attr(val, prim_slot, no_expr())),filename);
-
+	class_symtable.addid(Bool,Bool_class);
     //
     // The class Str has a number of slots and operations:
     //       val                                  the length of the string
@@ -188,6 +236,7 @@ void ClassTable::install_basic_classes() {
 						      Str, 
 						      no_expr()))),
 	       filename);
+	class_symtable.addid(Str,Str_class);
 }
 
 ////////////////////////////////////////////////////////////////////

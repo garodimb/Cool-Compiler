@@ -22,7 +22,9 @@ typedef ClassTable *ClassTableP;
 class ClassTable {
 private:
   int semant_errors;
+  void install_classes(Classes classes);
   void install_basic_classes();
+  SymbolTable<Symbol,Class__class> class_symtable;
   ostream& error_stream;
 
 public:
