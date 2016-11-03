@@ -32,6 +32,7 @@ public:
   ClassTable(Classes);
   void install_classes(Classes classes);
   void install_symbols(Classes classes);
+  bool is_main_present();
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);

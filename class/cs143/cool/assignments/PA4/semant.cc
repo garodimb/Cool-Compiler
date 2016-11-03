@@ -130,16 +130,7 @@ void ClassTable::install_classes(Classes classes){
 			err_stream << "Class " << class_name << " cannot inherit class " << parent_name << "." << endl;
 		}
 	}
-
-	/* Check whether Main class exists and has main method defined in it */
-	if(class_symtable->lookup(Main)==NULL){
-		ostream& err_stream = semant_error();
-		err_stream << "Class Main is not defined." << endl;
-	}
-	else{
-		/* Check whether main method exists */
-	}
-	class_symtable->exitscope();
+	//class_symtable->exitscope();
 	}
 
 /* Install symbols from different classes to symbol_table and method_table */
@@ -160,8 +151,8 @@ void class__class::install_symbols(){
 	for(int i = features->first(); features->more(i); i = features->next(i)){
 		features->nth(i)->install_symbols();
 	}
-	method_table->exitscope();
-	object_table->exitscope();
+	//method_table->exitscope();
+	//object_table->exitscope();
 }
 
 void method_class::install_symbols(){
@@ -199,6 +190,24 @@ void ClassTable::install_basic_symbols(){
 
 }
 
+/* Check whether Main class exists and has main method defined in it */
+bool ClassTable::is_main_present(){
+	Class_ main_class = class_symtable->lookup(Main);
+	if(main_class==NULL){
+		ostream& err_stream = semant_error();
+		err_stream << "Class Main is not defined." << endl;
+		return false;
+	}
+	else{
+		MethodTable *method_table = main_class->getMethodTable();
+		if(method_table->probe(main_meth)==NULL){
+			ostream& err_stream = semant_error();
+			err_stream << "No 'main' method in class Main." << endl;
+			return false;
+		}
+	}
+	return true;
+}
 
 void ClassTable::install_basic_classes() {
 
@@ -359,6 +368,7 @@ void program_class::semant()
     /* some semantic analysis code may go here */
     classtable->install_classes(classes);
     classtable->install_symbols(classes);
+    classtable->is_main_present();
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
