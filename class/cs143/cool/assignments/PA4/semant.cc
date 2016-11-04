@@ -228,7 +228,7 @@ Symbol ClassTable::lookup_attr(Symbol attr_name, Symbol class_name){
 	return attr;
 }
 
-/* Get method from this class or it's parent class */
+/* Get method from this class or it's parent(ancestor) class */
 Feature class__class::getMethod(Symbol method_name){
 	MethodTable::iterator imeth = method_table->find(method_name);
 	Feature method = NULL;
@@ -242,65 +242,132 @@ Feature class__class::getMethod(Symbol method_name){
 	return method;
 }
 
-/* Get attribute from this class or it's parent class */
+/* Get attribute from this class or it's parent(ancestor) class */
 Symbol class__class::getAttr(Symbol attr_name){
-	Symbol type_decl = *(object_table->probe(attr_name));
+	Symbol type_decl = (Symbol)object_table->probe(attr_name);
 	if(type_decl==NULL){
 		if(parent != No_class){
 			Class_ class_parent = classtable->lookup_class(parent);
-			type_decl = class_parent->getAttr(attr_name);
+			type_decl = (Symbol)class_parent->getAttr(attr_name);
 		}
 	}
 	return type_decl;
 }
 
 /* Compare two method by using singatures */
-bool ClassTable::is_equal_method(Feature method1, Feature method2){
+bool method_class::is_equal_feature(Feature method){
+	Formals method_formals = method->getFormals();
+
+	/* Check whether both methods have same number of
+		formal arguments */
+	if(formals->len()!=method_formals->len()){
+		return false;
+	}
+
+	/* Check whether return type of both methods are same */
+	else if(getReturnType()!=method->getReturnType()){
+		return false;
+	}
+
+	/* Check whether all formal arguments have same type for both methods */
+	else{
+		int i, j;
+		i = formals->first();
+		j = method_formals->first();
+
+		/* Get declare type of each formal argument and check whether they
+			are same */
+		while(formals->more(i) && method_formals->more(j)){
+			if(formals->nth(i)->getTypedecl()!=method_formals->nth(j)->getTypedecl()){
+				return false;
+			}
+			i = formals->next(i);
+			j = method_formals->next(j);
+		}
+	}
 	return true;
 }
-/* Check methods of each class */
-bool ClassTable::check_methods(){
-	bool err_flag = false;
-	Class_ class_ = NULL;
-	Class_ class_parent = NULL;
-	MethodTable *method_table = NULL;
-	Symbol method_name = NULL;
-	Feature child_method = NULL, parent_method = NULL;
-	/* Iterate over all classes */
-	for(ClassSymTable::iterator cl_it = class_symtable->begin(); cl_it != class_symtable->end(); ++cl_it){
-		class_ = cl_it->second;
-		/* If it's parent is No_class then continue(Object class) */
-		if(class_->getParent() == No_class){
-			continue;
-		}
-		/* Get handler to parent class from class_symtable */
-		class_parent = class_symtable->find(class_->getParent())->second;
 
-		/* Get method table from class and iterate over all methods */
-		method_table = class_->getMethodTable();
-		for(MethodTable::iterator mth_it = method_table->begin(); mth_it != method_table->end(); ++mth_it){
+/* Compare two attributes using declare type*/
+bool attr_class::is_equal_feature(Feature attr){
+	if(type_decl == attr->getTypedecl()){
+		return true;
+	}
+	return false;
+}
 
-			/* Check if method method_name is defined in any of parent class(Ancestor class) */
-			method_name = mth_it->first;
-			child_method = mth_it->second;
-			parent_method = class_parent->getMethod(method_name);
-			if(parent_method && !is_equal_method(child_method,parent_method)){
-				ostream& err_stream = semant_error(class_);
-				err_stream <<"Method " << method_name << " of parent class "
-						   << class_parent->getName() << " is redefined with different signature in child class "
-						   << class_->getName() << "." << endl;
-				err_flag = true;
-			}
+/* Check if attribute is redfined in base class */
+bool attr_class:: check_features()
+{
+	bool err_flag = true;
+	Symbol class_parent_name = curr_class->getParent();
+	if(class_parent_name != No_class){
+
+		/* Check whether attribute with same name and type is defined
+			in ancestor class */
+		Class_ class_parent = classtable->lookup_class(class_parent_name);
+		if(class_parent->getAttr(name)){
+			ostream& err_stream = classtable->semant_error(curr_class->getFileName(),this);
+			err_stream << "Attribute " << name << " of class "
+			<< curr_class->getName() << " is already defined in parent class "
+		    << class_parent_name << "." << endl;
+			err_flag = false;
 		}
 	}
 	return err_flag;
 }
 
-bool ClassTable::check_attrs(){
+/*  Check whether method if redfined in child class has same
+	signature as that of parent */
+bool method_class:: check_features(){
+	bool err_flag = true;
+	/* Get parent class */
+	Symbol class_parent_name = curr_class->getParent();
+	if(class_parent_name != No_class){
+		Class_ class_parent = classtable->lookup_class(class_parent_name);
 
-	return false;
+		/* Check if method with same name of this is present in ancestor
+		   of class in which this method is defined. If defined check whether
+		   siganture of both the methods are same */
+		Feature parent_method = class_parent->getMethod(name);
+		if(parent_method && !(is_equal_feature(parent_method))){
+				ostream& err_stream = classtable->semant_error(curr_class);
+				err_stream <<"Method " << name << " of parent class "
+						   << class_parent->getName() << " is redefined with different signature in child class "
+						   << curr_class->getName() << "." << endl;
+				err_flag = true;
+			}
+	}
+	return err_flag;
 }
 
+/* Check all features follows semantic rules of inheritance */
+bool class__class::check_features(){
+	bool err_flag = true;
+	curr_class = this;
+
+	/*Iterate over all features(attributes and methods and check) */
+	for(int i = features->first(); features->more(i); i = features->next(i)){
+		if(!features->nth(i)->check_features()){
+			err_flag = false;
+		}
+	}
+	return err_flag;
+}
+
+/* 	Check whether features(attributes and methods) are properly
+	declared in child and parent class of all classes*/
+bool ClassTable::check_features(){
+	bool err_flag = true;
+	/* Iterate over all classes and check its features */
+	for(ClassSymTable::iterator cl_it = class_symtable->begin();
+		cl_it != class_symtable->end(); ++cl_it){
+		if(!cl_it->second->check_features()){
+			err_flag = false;
+		}
+	}
+	return err_flag;
+}
 
 void ClassTable::install_basic_classes() {
 
@@ -461,7 +528,7 @@ void program_class::semant()
     classtable->install_classes(classes);
     classtable->install_symbols(classes);
     classtable->is_main_present();
-    classtable->check_methods();
+    classtable->check_features();
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);

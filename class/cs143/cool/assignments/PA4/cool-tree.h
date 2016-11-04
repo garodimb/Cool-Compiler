@@ -37,16 +37,16 @@ typedef class Class__class *Class_;
 
 class Class__class : public tree_node {
 public:
-
+   virtual void install_symbols() = 0;
    virtual Symbol getName() = 0;
    virtual Symbol getParent() = 0;
    virtual Features getFeatures() = 0;
    virtual Symbol getFileName() = 0;
-   virtual void install_symbols() = 0;
    virtual ObjectTable *getObjectTable() = 0;
    virtual MethodTable *getMethodTable() = 0;
-   virtual Feature getMethod(Symbol method_name) = 0;
    virtual Symbol getAttr(Symbol attr_name) = 0;
+   virtual Feature getMethod(Symbol method_name) = 0;
+   virtual bool check_features() = 0;
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
@@ -62,6 +62,12 @@ typedef class Feature_class *Feature;
 class Feature_class : public tree_node {
 public:
    virtual void install_symbols() = 0;
+   virtual Symbol getName() = 0;
+   virtual Formals getFormals() = 0;
+   virtual Symbol getReturnType() = 0;
+   virtual Symbol getTypedecl() = 0;
+   virtual bool check_features() = 0;
+   virtual bool is_equal_feature(Feature feature) = 0;
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
 
@@ -77,6 +83,8 @@ typedef class Formal_class *Formal;
 class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
+   virtual Symbol getName() = 0;
+   virtual Symbol getTypedecl() = 0;
    virtual Formal copy_Formal() = 0;
 
 #ifdef Formal_EXTRAS
@@ -177,17 +185,17 @@ public:
       method_table = new MethodTable();
       object_table = new ObjectTable();
    }
-   Class_ copy_Class_();
-
+   void install_symbols();
    Symbol getName() { return name; }
    Symbol getParent() { return parent; }
    Features getFeatures() { return features; }
    Symbol getFileName() { return filename; }
-   MethodTable *getMethodTable() { return method_table; }
    ObjectTable *getObjectTable() { return object_table; }
-   Feature getMethod(Symbol method_name);
+   MethodTable *getMethodTable() { return method_table; }
    Symbol getAttr(Symbol attr_name);
-   void install_symbols();
+   Feature getMethod(Symbol method_name);
+   bool check_features();
+   Class_ copy_Class_();
    void dump(ostream& stream, int n);
 
 #ifdef Class__SHARED_EXTRAS
@@ -214,6 +222,12 @@ public:
       expr = a4;
    }
    void install_symbols();
+   Symbol getName() { return name; }
+   Formals getFormals() { return formals; }
+   Symbol getReturnType() { return return_type; }
+   Symbol getTypedecl() { return NULL; }
+   bool check_features();
+   bool is_equal_feature(Feature method);
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
@@ -239,6 +253,12 @@ public:
       init = a3;
    }
    void install_symbols();
+   virtual Symbol getName(){ return name; }
+   Formals getFormals(){ return NULL; }
+   Symbol getReturnType() { return NULL; }
+   Symbol getTypedecl() { return type_decl; }
+   bool check_features();
+   bool is_equal_feature(Feature attr);
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
@@ -262,6 +282,8 @@ public:
       type_decl = a2;
    }
    Formal copy_Formal();
+   Symbol getName(){ return name; }
+   Symbol getTypedecl(){ return type_decl; }
    void dump(ostream& stream, int n);
 
 #ifdef Formal_SHARED_EXTRAS

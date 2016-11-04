@@ -36,9 +36,7 @@ public:
   void install_classes(Classes classes);
   void install_symbols(Classes classes);
   bool is_main_present();
-  bool is_equal_method(Feature method1, Feature method2);
-  bool check_methods();
-  bool check_attrs();
+  bool check_features();
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);
