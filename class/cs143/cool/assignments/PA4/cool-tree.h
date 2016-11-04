@@ -45,6 +45,8 @@ public:
    virtual void install_symbols() = 0;
    virtual ObjectTable *getObjectTable() = 0;
    virtual MethodTable *getMethodTable() = 0;
+   virtual Feature getMethod(Symbol method_name) = 0;
+   virtual Symbol getAttr(Symbol attr_name) = 0;
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
@@ -183,6 +185,8 @@ public:
    Symbol getFileName() { return filename; }
    MethodTable *getMethodTable() { return method_table; }
    ObjectTable *getObjectTable() { return object_table; }
+   Feature getMethod(Symbol method_name);
+   Symbol getAttr(Symbol attr_name);
    void install_symbols();
    void dump(ostream& stream, int n);
 

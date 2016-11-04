@@ -208,6 +208,52 @@ bool ClassTable::is_main_present(){
 	return true;
 }
 
+/* Lookup method method_name in class class_name */
+Feature ClassTable::lookup_method(Symbol method_name, Symbol class_name){
+	Class_ class_ = lookup_class(class_name);
+	Feature feature = NULL;
+	if(class_!= NULL){
+		feature = class_->getMethod(method_name);
+	}
+	return feature;
+}
+
+/* Lookup attribute attr_name in class class_name */
+Symbol ClassTable::lookup_attr(Symbol attr_name, Symbol class_name){
+	Class_ class_ = lookup_class(class_name);
+	Symbol attr = NULL;
+	if(class_!=NULL){
+		attr = class_->getAttr(attr_name);
+	}
+	return attr;
+}
+
+/* Get method from this class or it's parent class */
+Feature class__class::getMethod(Symbol method_name){
+	MethodTable::iterator imeth = method_table->find(method_name);
+	Feature method = NULL;
+	if(imeth != method_table->end()){
+		method = imeth->second;
+	}
+	else if(parent != No_class){
+		Class_ class_parent = classtable->lookup_class(parent);
+		method = class_parent->getMethod(method_name);
+	}
+	return method;
+}
+
+/* Get attribute from this class or it's parent class */
+Symbol class__class::getAttr(Symbol attr_name){
+	Symbol type_decl = *(object_table->probe(attr_name));
+	if(type_decl==NULL){
+		if(parent != No_class){
+			Class_ class_parent = classtable->lookup_class(parent);
+			type_decl = class_parent->getAttr(attr_name);
+		}
+	}
+	return type_decl;
+}
+
 void ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.

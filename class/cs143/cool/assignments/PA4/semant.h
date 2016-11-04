@@ -31,6 +31,8 @@ private:
 public:
   ClassTable(Classes);
   Class_ lookup_class(Symbol class_name);
+  Feature lookup_method(Symbol method_name,Symbol class_name);
+  Symbol lookup_attr(Symbol attr_name, Symbol class_name);
   void install_classes(Classes classes);
   void install_symbols(Classes classes);
   bool is_main_present();
