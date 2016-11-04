@@ -254,6 +254,54 @@ Symbol class__class::getAttr(Symbol attr_name){
 	return type_decl;
 }
 
+/* Compare two method by using singatures */
+bool ClassTable::is_equal_method(Feature method1, Feature method2){
+	return true;
+}
+/* Check methods of each class */
+bool ClassTable::check_methods(){
+	bool err_flag = false;
+	Class_ class_ = NULL;
+	Class_ class_parent = NULL;
+	MethodTable *method_table = NULL;
+	Symbol method_name = NULL;
+	Feature child_method = NULL, parent_method = NULL;
+	/* Iterate over all classes */
+	for(ClassSymTable::iterator cl_it = class_symtable->begin(); cl_it != class_symtable->end(); ++cl_it){
+		class_ = cl_it->second;
+		/* If it's parent is No_class then continue(Object class) */
+		if(class_->getParent() == No_class){
+			continue;
+		}
+		/* Get handler to parent class from class_symtable */
+		class_parent = class_symtable->find(class_->getParent())->second;
+
+		/* Get method table from class and iterate over all methods */
+		method_table = class_->getMethodTable();
+		for(MethodTable::iterator mth_it = method_table->begin(); mth_it != method_table->end(); ++mth_it){
+
+			/* Check if method method_name is defined in any of parent class(Ancestor class) */
+			method_name = mth_it->first;
+			child_method = mth_it->second;
+			parent_method = class_parent->getMethod(method_name);
+			if(parent_method && !is_equal_method(child_method,parent_method)){
+				ostream& err_stream = semant_error(class_);
+				err_stream <<"Method " << method_name << " of parent class "
+						   << class_parent->getName() << " is redefined with different signature in child class "
+						   << class_->getName() << "." << endl;
+				err_flag = true;
+			}
+		}
+	}
+	return err_flag;
+}
+
+bool ClassTable::check_attrs(){
+
+	return false;
+}
+
+
 void ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
@@ -413,6 +461,7 @@ void program_class::semant()
     classtable->install_classes(classes);
     classtable->install_symbols(classes);
     classtable->is_main_present();
+    classtable->check_methods();
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
