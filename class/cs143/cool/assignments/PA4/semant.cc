@@ -1,5 +1,3 @@
-
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -19,7 +17,7 @@ extern char *curr_filename;
 // as fixed names used by the runtime system.
 //
 //////////////////////////////////////////////////////////////////////
-static Symbol 
+static Symbol
     arg,
     arg2,
     Bool,
@@ -68,7 +66,7 @@ static void initialize_constants(void)
     length      = idtable.add_string("length");
     Main        = idtable.add_string("Main");
     main_meth   = idtable.add_string("main");
-    //   _no_class is a symbol that can't be the name of any 
+    //   _no_class is a symbol that can't be the name of any
     //   user-defined class.
     No_class    = idtable.add_string("_no_class");
     No_type     = idtable.add_string("_no_type");
@@ -89,9 +87,17 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
 	class_symtable = new ClassSymTable;
 }
 
-void ClassTable::install_classes(Classes classes){
+/* lookup in class_symtable for class_name and return it */
+Class_ ClassTable::lookup_class(Symbol class_name){
+	ClassSymTable::iterator it = class_symtable->find(class_name);
+	Class_ class_ = NULL;
+	if(it!=class_symtable->end()){
+		class_ = it->second;
+	}
+	return class_;
+}
 
-	class_symtable->enterscope();
+void ClassTable::install_classes(Classes classes){
 
 	/* Install perdefined classes in class_symbol table */
 	install_basic_classes();
@@ -107,12 +113,12 @@ void ClassTable::install_classes(Classes classes){
 			err_stream << "Class name " << class_name << " is not allowed" << endl;
 		}
 		/* Check whether class_name class is already defined */
-		else if(class_symtable->lookup(class_name)!=NULL){
+		else if(lookup_class(class_name)!=NULL){
 			ostream &err_stream = semant_error(class_);
 			err_stream << "Class " << class_name << " is already defined" << endl;
 		}
 		else{
-			class_symtable->addid(class_->getName(),class_);
+			class_symtable->insert(std::pair<Symbol,Class_>(class_->getName(),class_));
 		}
 	}
 
@@ -121,7 +127,7 @@ void ClassTable::install_classes(Classes classes){
 		Class_ class_ = classes->nth(i);
 		Symbol parent_name = class_->getParent();
 		Symbol class_name = class_->getName();
-		if(class_symtable->lookup(parent_name)==NULL){
+		if(lookup_class(parent_name)==NULL){
 			ostream &err_stream = semant_error(class_);
 			err_stream << "Undefined class " << parent_name << endl;
 		}
@@ -130,15 +136,14 @@ void ClassTable::install_classes(Classes classes){
 			err_stream << "Class " << class_name << " cannot inherit class " << parent_name << "." << endl;
 		}
 	}
-	//class_symtable->exitscope();
 	}
 
 /* Install symbols from different classes to symbol_table and method_table */
 void ClassTable::install_symbols(Classes classes){
-	install_basic_symbols();
+	//install_basic_symbols();
 	Class_ class_;
-	for(int i = classes->first(); classes->more(i); i = classes->next(i)){
-		class_ = classes->nth(i);
+	for(ClassSymTable::iterator it = class_symtable->begin(); it != class_symtable->end(); ++it){
+		class_ = it->second;
 		class_->install_symbols();
 	}
 }
@@ -146,31 +151,29 @@ void ClassTable::install_symbols(Classes classes){
 /* Traverse each class and then install every available features */
 void class__class::install_symbols(){
 	object_table->enterscope();
-	method_table->enterscope();
 	curr_class = this;
 	for(int i = features->first(); features->more(i); i = features->next(i)){
 		features->nth(i)->install_symbols();
 	}
-	//method_table->exitscope();
-	//object_table->exitscope();
 }
 
+/* Install method in method_table */
 void method_class::install_symbols(){
 	MethodTable *method_table = curr_class->getMethodTable();
 	if(name==self){
 		ostream& err_stream = classtable->semant_error(curr_class);
 		err_stream << "Method " << name << " is not allowed." << endl;
 	}
-	else if(method_table->probe(name)!=NULL){
+	else if(method_table->find(name)!=method_table->end()){
 		ostream& err_stream = classtable->semant_error(curr_class);
 		err_stream << "Method " << name << " is multiply defined in class." << endl;
 	}
 	else{
-		method_table->addid(name,this);
+		method_table->insert(std::pair<Symbol,Feature>(name,this));
 	}
-
 }
 
+/* Install attr in object_table */
 void attr_class::install_symbols(){
 	ObjectTable *object_table = curr_class->getObjectTable();
 	if(name==self){
@@ -186,13 +189,9 @@ void attr_class::install_symbols(){
 	}
 }
 
-void ClassTable::install_basic_symbols(){
-
-}
-
 /* Check whether Main class exists and has main method defined in it */
 bool ClassTable::is_main_present(){
-	Class_ main_class = class_symtable->lookup(Main);
+	Class_ main_class = lookup_class(Main);
 	if(main_class==NULL){
 		ostream& err_stream = semant_error();
 		err_stream << "Class Main is not defined." << endl;
@@ -200,7 +199,7 @@ bool ClassTable::is_main_present(){
 	}
 	else{
 		MethodTable *method_table = main_class->getMethodTable();
-		if(method_table->probe(main_meth)==NULL){
+		if(method_table->find(main_meth) == method_table->end()){
 			ostream& err_stream = semant_error();
 			err_stream << "No 'main' method in class Main." << endl;
 			return false;
@@ -214,17 +213,17 @@ void ClassTable::install_basic_classes() {
     // The tree package uses these globals to annotate the classes built below.
    // curr_lineno  = 0;
     Symbol filename = stringtable.add_string("<basic class>");
-    
+
     // The following demonstrates how to create dummy parse trees to
     // refer to basic Cool classes.  There's no need for method
     // bodies -- these are already built into the runtime system.
-    
+
     // IMPORTANT: The results of the following expressions are
     // stored in local variables.  You will want to do something
     // with those variables at the end of this method to make this
     // code meaningful.
 
-    // 
+    //
     // The Object class has no parent class. Its methods are
     //        abort() : Object    aborts the program
     //        type_name() : Str   returns a string representation of class name
@@ -234,7 +233,7 @@ void ClassTable::install_basic_classes() {
     // are already built in to the runtime system.
 
     Class_ Object_class =
-	class_(Object, 
+	class_(Object,
 	       No_class,
 	       append_Features(
 			       append_Features(
@@ -242,16 +241,15 @@ void ClassTable::install_basic_classes() {
 					       single_Features(method(type_name, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(copy, nil_Formals(), SELF_TYPE, no_expr()))),
 	       filename);
-	class_symtable->addid(Object,Object_class);
-    // 
+	class_symtable->insert(std::pair<Symbol,Class_>(Object,Object_class));    //
     // The IO class inherits from Object. Its methods are
     //        out_string(Str) : SELF_TYPE       writes a string to the output
     //        out_int(Int) : SELF_TYPE            "    an int    "  "     "
     //        in_string() : Str                 reads a string from the input
     //        in_int() : Int                      "   an int     "  "     "
     //
-    Class_ IO_class = 
-	class_(IO, 
+    Class_ IO_class =
+	class_(IO,
 	       Object,
 	       append_Features(
 			       append_Features(
@@ -262,24 +260,24 @@ void ClassTable::install_basic_classes() {
 										      SELF_TYPE, no_expr()))),
 					       single_Features(method(in_string, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(in_int, nil_Formals(), Int, no_expr()))),
-	       filename);  
-	class_symtable->addid(IO,IO_class);
+	       filename);
+	class_symtable->insert(std::pair<Symbol,Class_>(IO,IO_class));
     //
     // The Int class has no methods and only a single attribute, the
-    // "val" for the integer. 
+    // "val" for the integer.
     //
     Class_ Int_class =
-	class_(Int, 
+	class_(Int,
 	       Object,
 	       single_Features(attr(val, prim_slot, no_expr())),
 	       filename);
-	class_symtable->addid(Int,Int_class);
+	class_symtable->insert(std::pair<Symbol,Class_>(Int,Int_class));
     //
     // Bool also has only the "val" slot.
     //
     Class_ Bool_class =
 	class_(Bool, Object, single_Features(attr(val, prim_slot, no_expr())),filename);
-	class_symtable->addid(Bool,Bool_class);
+	class_symtable->insert(std::pair<Symbol,Class_>(Bool,Bool_class));
     //
     // The class Str has a number of slots and operations:
     //       val                                  the length of the string
@@ -287,9 +285,9 @@ void ClassTable::install_basic_classes() {
     //       length() : Int                       returns length of the string
     //       concat(arg: Str) : Str               performs string concatenation
     //       substr(arg: Int, arg2: Int): Str     substring selection
-    //       
+    //
     Class_ Str_class =
-	class_(Str, 
+	class_(Str,
 	       Object,
 	       append_Features(
 			       append_Features(
@@ -298,17 +296,17 @@ void ClassTable::install_basic_classes() {
 									       single_Features(attr(val, Int, no_expr())),
 									       single_Features(attr(str_field, prim_slot, no_expr()))),
 							       single_Features(method(length, nil_Formals(), Int, no_expr()))),
-					       single_Features(method(concat, 
+					       single_Features(method(concat,
 								      single_Formals(formal(arg, Str)),
-								      Str, 
+								      Str,
 								      no_expr()))),
-			       single_Features(method(substr, 
-						      append_Formals(single_Formals(formal(arg, Int)), 
+			       single_Features(method(substr,
+						      append_Formals(single_Formals(formal(arg, Int)),
 								     single_Formals(formal(arg2, Int))),
-						      Str, 
+						      Str,
 						      no_expr()))),
 	       filename);
-	class_symtable->addid(Str,Str_class);
+	class_symtable->insert(std::pair<Symbol,Class_>(Str,Str_class));
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -316,20 +314,20 @@ void ClassTable::install_basic_classes() {
 // semant_error is an overloaded function for reporting errors
 // during semantic analysis.  There are three versions:
 //
-//    ostream& ClassTable::semant_error()                
+//    ostream& ClassTable::semant_error()
 //
 //    ostream& ClassTable::semant_error(Class_ c)
 //       print line number and filename for `c'
 //
-//    ostream& ClassTable::semant_error(Symbol filename, tree_node *t)  
+//    ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
 //       print a line number and filename
 //
 ///////////////////////////////////////////////////////////////////
 
 ostream& ClassTable::semant_error(Class_ c)
-{                                                             
+{
     return semant_error(c->get_filename(),c);
-}    
+}
 
 ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
 {
@@ -337,11 +335,11 @@ ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
     return semant_error();
 }
 
-ostream& ClassTable::semant_error()                  
-{                                                 
-    semant_errors++;                            
+ostream& ClassTable::semant_error()
+{
+    semant_errors++;
     return error_stream;
-} 
+}
 
 
 
@@ -374,5 +372,3 @@ void program_class::semant()
 	exit(1);
     }
 }
-
-

@@ -2,7 +2,8 @@
 #define SEMANT_H_
 
 #include <assert.h>
-#include <iostream>  
+#include <iostream>
+#include <map>
 #include "cool-tree.h"
 #include "stringtab.h"
 #include "symtab.h"
@@ -12,7 +13,7 @@
 #define FALSE 0
 
 class ClassTable;
-typedef SymbolTable<Symbol,Class__class> ClassSymTable;
+typedef std::map<Symbol,Class_> ClassSymTable;
 typedef ClassTable *ClassTableP;
 
 // This is a structure that may be used to contain the semantic
@@ -25,11 +26,11 @@ private:
   int semant_errors;
   ClassSymTable *class_symtable;
   void install_basic_classes();
-  void install_basic_symbols();
   ostream& error_stream;
 
 public:
   ClassTable(Classes);
+  Class_ lookup_class(Symbol class_name);
   void install_classes(Classes classes);
   void install_symbols(Classes classes);
   bool is_main_present();

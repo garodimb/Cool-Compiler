@@ -12,8 +12,9 @@
 #include "tree.h"
 #include "cool-tree.handcode.h"
 #include "symtab.h"
+#include <map>
 
-typedef SymbolTable<Symbol,Feature_class> MethodTable;
+typedef std::map<Symbol,Feature> MethodTable;
 typedef SymbolTable<Symbol,Symbol> ObjectTable;
 
 // define the class for phylum
