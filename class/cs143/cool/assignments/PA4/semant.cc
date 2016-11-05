@@ -399,7 +399,16 @@ Symbol ClassTable::lub(Symbol type1, Symbol type2){
 }
 
 bool ClassTable::is_sub_type(Symbol parent, Symbol child){
-	if(child == No_type || child == parent){
+	if(child == No_type){
+		return true;
+	}
+	if(parent == SELF_TYPE){
+		parent = curr_class->getName();
+	}
+	if(child == SELF_TYPE){
+		child = curr_class->getName();
+	}
+	if(parent == child) {
 		return true;
 	}
 	Class_ class_ = classtable->lookup_class(child);
@@ -416,6 +425,55 @@ bool ClassTable::is_sub_type(Symbol parent, Symbol child){
 	return false;
 }
 
+void class__class::addChild(Class_ class_){
+	child_list->push_back(class_);
+}
+
+void ClassTable::create_graph(){
+	Class_ class_ = NULL;
+	Class_ class_parent = NULL;
+	for(ClassSymTable::iterator cl_it = class_symtable->begin();
+		cl_it != class_symtable->end(); ++cl_it){
+		class_ = cl_it->second;
+		class_parent = lookup_class(class_->getParent());
+		if(class_parent!= NULL)
+			class_parent->addChild(class_);
+	}
+}
+
+bool class__class::detect_cycle(){
+	cout << name << endl;
+	if(visited){
+		ostream &err_stream = classtable->semant_error(get_filename(),this);
+		err_stream << "Class " << name << " is found in"
+		" inheritance cycle." << endl;
+		return true;
+	}
+	visited = true;
+	for(ChildList::iterator cl_it = child_list->begin();
+		cl_it != child_list->end(); ++cl_it){
+		if((*cl_it)->detect_cycle()){
+			return true;
+		}
+	}
+	visited = false;
+	return false;
+}
+
+bool ClassTable::check_cycle(){
+	Class_ class_root = NULL;
+	for(ClassSymTable::iterator cl_it = class_symtable->begin();
+		cl_it != class_symtable->end(); ++cl_it){
+		class_root = cl_it->second;
+		if(!class_root->getVisited()){
+			cout << "Root: " << class_root->getName() << endl;
+			if(class_root->detect_cycle()){
+				return true;
+			}
+		}
+	}
+	return false;
+}
 void ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
@@ -566,26 +624,31 @@ ostream& ClassTable::semant_error()
  */
 void program_class::semant()
 {
-    initialize_constants();
+	initialize_constants();
 
-    /* ClassTable constructor may do some semantic analysis */
-    ClassTable *classtable = new ClassTable(classes);
-    ::classtable = classtable;
-    /* some semantic analysis code may go here */
-    classtable->install_classes(classes);
-    classtable->install_symbols(classes);
-    classtable->is_main_present();
-    classtable->check_features();
-    if (classtable->errors()) {
+	/* ClassTable constructor may do some semantic analysis */
+	ClassTable *classtable = new ClassTable(classes);
+	::classtable = classtable;
+	/* some semantic analysis code may go here */
+	classtable->install_classes(classes);
+	classtable->create_graph();
+		if(classtable->check_cycle()){
+			cerr << "Compilation halted due to static semantic errors." << endl;
+			exit(1);
+		}
+	classtable->install_symbols(classes);
+	classtable->is_main_present();
+	classtable->check_features();
+	if (classtable->errors()) {
 		cerr << "Compilation halted due to static semantic errors." << endl;
 		exit(1);
-    }
-    classtable->semant();
-    if (classtable->errors()) {
+	}
+	classtable->semant();
+	if (classtable->errors()) {
 		cerr << "Compilation halted due to type errors." << endl;
 		exit(1);
-    }
-}
+	}
+	}
 
 void ClassTable::semant(){
 	for(ClassSymTable::iterator cl_it = class_symtable->begin();
@@ -803,13 +866,29 @@ void loop_class::semant(){
 	}
 }
 
+void typcase_class::check_dup(){
+	Expression e1, e2;
+	for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+		e1 = cases->nth(i)->getExpr();
+		for(int j = i+1; cases->more(j); j = cases->next(j)){
+			e2 = cases->nth(j)->getExpr();
+			if(e1->get_type() == e2->get_type()){
+				ostream &err_stream = classtable->semant_error(
+					curr_class->get_filename(), this);
+				err_stream << " Multiple branches evalues to "
+				<< " same type " << e1->get_type() << "." << endl;
+				return;
+			}
+		}
+	}
+}
+
 void typcase_class::semant(){
 	// cout << "Type Case: " << "No name" << endl;
 	expr->semant();
 	Case case_ = NULL;
 	Expression expr;
 	type = No_type;
-	/* @TODO Check for duplicate cases */
 	for(int i = cases->first(); cases->more(i); i = cases->next(i)){
 		expr = cases->nth(i)->getExpr();
 		expr->semant();
@@ -820,6 +899,7 @@ void typcase_class::semant(){
 			type = classtable->lub(type,expr->get_type());
 		}
 	}
+	check_dup();
 }
 
 void block_class::semant(){

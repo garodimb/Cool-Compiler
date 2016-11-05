@@ -13,10 +13,11 @@
 #include "cool-tree.handcode.h"
 #include "symtab.h"
 #include <map>
+#include <list>
 
 typedef std::map<Symbol,Feature> MethodTable;
 typedef SymbolTable<Symbol,Symbol> ObjectTable;
-
+typedef std::list<Class_> ChildList;
 // define the class for phylum
 // define simple phylum - Program
 typedef class Program_class *Program;
@@ -48,6 +49,9 @@ public:
    virtual Feature getMethod(Symbol method_name) = 0;
    virtual void semant() = 0;
    virtual bool check_features() = 0;
+   virtual void addChild(Class_ class_) = 0;
+   virtual bool detect_cycle() = 0;
+   virtual bool getVisited() = 0;
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
 
@@ -179,6 +183,8 @@ protected:
    Symbol filename;
    MethodTable *method_table;
    ObjectTable* object_table;
+   ChildList *child_list;
+   bool visited;
 public:
    class__class(Symbol a1, Symbol a2, Features a3, Symbol a4) {
       name = a1;
@@ -187,6 +193,8 @@ public:
       filename = a4;
       method_table = new MethodTable();
       object_table = new ObjectTable();
+      child_list = new ChildList();
+      visited = false;
    }
    void install_symbols();
    Symbol getName() { return name; }
@@ -199,6 +207,9 @@ public:
    Feature getMethod(Symbol method_name);
    void semant();
    bool check_features();
+   void addChild(Class_ class_);
+   bool detect_cycle();
+   bool getVisited() { return visited; }
    Class_ copy_Class_();
    void dump(ostream& stream, int n);
 
@@ -462,6 +473,7 @@ public:
       cases = a2;
    }
    void semant();
+   void check_dup();
    Expression copy_Expression();
    void dump(ostream& stream, int n);
 

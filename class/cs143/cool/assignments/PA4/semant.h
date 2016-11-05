@@ -35,6 +35,8 @@ public:
   Symbol lookup_attr(Symbol attr_name, Symbol class_name);
   void install_classes(Classes classes);
   void install_symbols(Classes classes);
+  void create_graph();
+  bool check_cycle();
   bool is_main_present();
   bool check_features();
   void semant();

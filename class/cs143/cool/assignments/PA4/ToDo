@@ -1,0 +1,7 @@
+1. Handle self and SELF_TYPE
+2. Semantic rule for branch
+3. Merge code for dispatch_common
+4. Break code of install_classes
+5. Appropriate error messages
+6. README file
+7. Creating test cases
