@@ -37,6 +37,7 @@ public:
   void install_symbols(Classes classes);
   bool is_main_present();
   bool check_features();
+  void semant();
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);

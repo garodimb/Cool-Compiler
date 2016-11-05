@@ -530,7 +530,224 @@ void program_class::semant()
     classtable->is_main_present();
     classtable->check_features();
     if (classtable->errors()) {
-	cerr << "Compilation halted due to static semantic errors." << endl;
-	exit(1);
+		cerr << "Compilation halted due to static semantic errors." << endl;
+		exit(1);
     }
+    classtable->semant();
+    if (classtable->errors()) {
+		cerr << "Compilation halted due to type errors." << endl;
+		exit(1);
+    }
+}
+
+void ClassTable::semant(){
+	for(ClassSymTable::iterator cl_it = class_symtable->begin();
+		cl_it != class_symtable->end(); ++cl_it){
+		if(cl_it->first == Object || cl_it->first == Int || cl_it->first == Bool
+			|| cl_it->first == IO || cl_it->first == Str){
+			continue ;
+		}
+		cl_it->second->semant();
+	}
+}
+
+void class__class::semant(){
+	curr_class = this;
+	cout << " Class: " << name << endl;
+	for(int i = features->first(); features->more(i); i = features->next(i)){
+		features->nth(i)->semant();
+	}
+}
+
+void method_class::semant(){
+	cout << " Method: " << name << endl;
+	/* Are we entering in scope? */
+	for(int i = formals->first();
+		formals->more(i); i = formals->next(i)){
+		formals->nth(i)->semant();
+	}
+	expr->semant();
+}
+
+void attr_class::semant(){
+	cout << " Attr: " << name << endl;
+	init->semant();
+}
+
+void formal_class::semant(){
+	cout << " Formal: " << name << endl;
+}
+
+void branch_class::semant(){
+	cout << " Branch " << name << endl;
+	expr->semant();
+}
+
+void assign_class::semant(){
+	cout << " Assign: " << name << endl;
+	expr->semant();
+	type = No_type;
+}
+
+void static_dispatch_class::semant(){
+	cout << " Static Dispatch: " << name << endl;
+	expr->semant();
+	for(int i = actual->first();
+		actual->more(i); i = actual->next(i)){
+		actual->nth(i)->semant();
+	}
+	type = No_type;
+}
+
+void dispatch_class::semant(){
+	cout << " Dispatch: " << name << endl;
+	expr->semant();
+	for(int i = actual->first();
+		actual->more(i); i = actual->next(i)){
+		actual->nth(i)->semant();
+	}
+	type = No_type;
+}
+
+void cond_class::semant(){
+	cout << " Condition: " << "No name" << endl;
+	pred->semant();
+	then_exp->semant();
+	else_exp->semant();
+	type = No_type;
+}
+
+void loop_class::semant(){
+	cout << " Loop: " << "No name" << endl;
+	pred->semant();
+	body->semant();
+	type = No_type;
+}
+
+void typcase_class::semant(){
+	cout << "Type Case: " << "No name" << endl;
+	expr->semant();
+	type = No_type;
+}
+
+void block_class::semant(){
+	cout << " Block: " << "No name" << endl;
+	for(int i = body->first();
+		body->more(i); i = body->next(i)){
+		body->nth(i)->semant();
+	}
+	type = No_type;
+}
+
+void let_class::semant(){
+	cout << "Let: " << identifier << endl;
+	init->semant();
+	body->semant();
+	type = No_type;
+}
+
+void plus_class::semant(){
+	cout << " Plus: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	if(e1->get_type()!=Int || e2->get_type()!=Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Problem" << endl;
+		type = No_type;
+	}
+	else{
+		type = Int;
+	}
+}
+
+void sub_class::semant(){
+	cout << " Subtraction: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void mul_class::semant(){
+	cout << " Multiplication: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void divide_class::semant(){
+	cout << " Divide: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void neg_class::semant(){
+	cout << " Negation: " << "No name" << endl;
+	e1->semant();
+	type = No_type;
+}
+
+void lt_class::semant(){
+	cout << " Less than: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void eq_class::semant(){
+	cout << " Equal to: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void leq_class::semant(){
+	cout << " Less than equal to: " << "No name" << endl;
+	e1->semant();
+	e2->semant();
+	type = No_type;
+}
+
+void comp_class::semant(){
+	cout << " NOT: " << "No name" << endl;
+	e1->semant();
+	type = No_type;
+}
+
+void int_const_class::semant(){
+	cout << " INT_CONST: " << token
+	<< endl;
+	type = Int;
+}
+
+void bool_const_class::semant(){
+	cout << " BOOL_CONST: " << val << endl;
+	type = Bool;
+}
+
+void string_const_class::semant(){
+	cout << " STR_CONST: " << token << endl;
+	type = Str;
+}
+
+void new__class::semant(){
+	/* @TODO: Check for SELF_TYPE rule */
+	cout << " NEW: " << type_name << endl;
+	type = type_name;
+}
+
+void isvoid_class::semant(){
+	cout << " is_void: " << "No name" << endl;
+	e1->semant();
+	type = No_type;
+}
+
+void no_expr_class::semant(){
+	cout << " No_expr: " << "No name" << endl;
+	type = No_type;
+}
+
+void object_class::semant(){
+	cout << " OBJECT: " << name << endl;
+	type = No_type;
 }
