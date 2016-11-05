@@ -116,6 +116,7 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
+   virtual Expression getExpr() = 0;
    virtual void semant() = 0;
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -314,6 +315,7 @@ public:
       expr = a3;
    }
    void semant();
+   Expression getExpr() { return expr; }
    Case copy_Case();
    void dump(ostream& stream, int n);
 

@@ -38,6 +38,8 @@ public:
   bool is_main_present();
   bool check_features();
   void semant();
+  Symbol lub(Symbol type1,Symbol type2);
+  bool is_sub_type(Symbol parent, Symbol child);
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);

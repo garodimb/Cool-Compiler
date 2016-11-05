@@ -180,12 +180,12 @@ void attr_class::install_symbols(){
 		ostream& err_stream = classtable->semant_error(curr_class);
 		err_stream << "Varible " << name << " is not allowed" << endl;
 	}
-	else if(object_table->probe(name)!=NULL){
+	else if(object_table->lookup(name)!=NULL){
 		ostream& err_stream = classtable->semant_error(curr_class);
 		err_stream << "Attribute " << name << " is multiply defined in class." << endl;
 	}
 	else{
-		object_table->addid(name,new Symbol(type_decl));
+		object_table->addid(name,&(type_decl));
 	}
 }
 
@@ -244,14 +244,17 @@ Feature class__class::getMethod(Symbol method_name){
 
 /* Get attribute from this class or it's parent(ancestor) class */
 Symbol class__class::getAttr(Symbol attr_name){
-	Symbol type_decl = (Symbol)object_table->probe(attr_name);
+	Symbol *type_decl = object_table->lookup(attr_name);
 	if(type_decl==NULL){
 		if(parent != No_class){
 			Class_ class_parent = classtable->lookup_class(parent);
-			type_decl = (Symbol)class_parent->getAttr(attr_name);
+			return class_parent->getAttr(attr_name);
+		}
+		else{
+			return NULL;
 		}
 	}
-	return type_decl;
+	return *type_decl;
 }
 
 /* Compare two method by using singatures */
@@ -367,6 +370,50 @@ bool ClassTable::check_features(){
 		}
 	}
 	return err_flag;
+}
+
+Symbol ClassTable::lub(Symbol type1, Symbol type2){
+	std::map<Symbol,bool> hash_table;
+	Class_ class_ = lookup_class(type1);
+	Class_ class_parent_name = NULL;
+
+	if(type1 == No_type){
+		return type2;
+	}
+	else if(type2 == No_type){
+		return type1;
+	}
+	while(class_->getParent() != No_class){
+		hash_table[class_->getName()] = true;
+		class_ = lookup_class(class_->getParent());
+	}
+	class_ = lookup_class(type2);
+
+	while(class_->getParent() != No_class){
+		if(hash_table.find(class_->getName())!=hash_table.end()){
+			return class_->getName();
+		}
+		class_ = lookup_class(class_->getParent());
+	}
+	return Object;
+}
+
+bool ClassTable::is_sub_type(Symbol parent, Symbol child){
+	if(child == No_type || child == parent){
+		return true;
+	}
+	Class_ class_ = classtable->lookup_class(child);
+	Symbol class_name = class_->getName();
+	Symbol class_parent_name = class_->getParent();
+	while(class_parent_name != No_class){
+		if(class_name == parent){
+			return true;
+		}
+		class_ = classtable->lookup_class(class_parent_name);
+		class_name = class_->getName();
+		class_parent_name = class_->getParent();
+	}
+	return false;
 }
 
 void ClassTable::install_basic_classes() {
@@ -553,44 +600,89 @@ void ClassTable::semant(){
 
 void class__class::semant(){
 	curr_class = this;
-	cout << " Class: " << name << endl;
+	// cout << " Class: " << name << endl;
 	for(int i = features->first(); features->more(i); i = features->next(i)){
 		features->nth(i)->semant();
 	}
 }
 
 void method_class::semant(){
-	cout << " Method: " << name << endl;
+	// // cout << " Method: " << name << endl;
 	/* Are we entering in scope? */
+	ObjectTable *object_table = curr_class->getObjectTable();
+	object_table->enterscope();
 	for(int i = formals->first();
 		formals->more(i); i = formals->next(i)){
 		formals->nth(i)->semant();
 	}
 	expr->semant();
+	if(return_type != expr->get_type()){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Inferred return type of method " << expr->get_type()
+		<< " does not match with declared return type " << return_type  << "." << endl;
+	}
+	object_table->exitscope();
 }
 
 void attr_class::semant(){
-	cout << " Attr: " << name << endl;
+	// // cout << " Attr: " << name << endl;
 	init->semant();
+	if(init->get_type()!=No_type && !classtable->is_sub_type(type_decl,init->get_type())){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Cannot assign " << init->get_type() << " to "
+		<< type_decl << " for identifier " << name << "." << endl;
+	}
 }
 
 void formal_class::semant(){
-	cout << " Formal: " << name << endl;
+	// // cout << " Formal: " << name << endl;
+	if(name == self){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "'self' cannot be name of formal parameter" << endl;
+	}
+	if(type_decl == SELF_TYPE){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << " Formal parameter " << name << " cannot have type SELF_TYPE." << endl;
+	}
+	else if(classtable->lookup_class(type_decl)==NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << " Undefined class " << type_decl << " in formal parameter." << endl;
+	}
+	ObjectTable *object_table = curr_class->getObjectTable();
+	if(object_table->probe(name) != NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << " Formal parameter " << name << "redfined." << endl;
+	}
+	object_table->addid(name,&(type_decl));
 }
 
 void branch_class::semant(){
-	cout << " Branch " << name << endl;
+	// // cout << " Branch " << name << endl;
 	expr->semant();
 }
 
 void assign_class::semant(){
-	cout << " Assign: " << name << endl;
+	// cout << " Assign: " << name << endl;
 	expr->semant();
+	Symbol type_assigned = expr->get_type();
+	Symbol type_decl = classtable->lookup_attr(name,curr_class->getName());
 	type = No_type;
+	if(type_decl==NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Assignment to undeclared identifier " << name << "." << endl;
+	}
+	else if(!classtable->is_sub_type(type_decl,type_assigned)){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Cannot assign " << type_assigned << " to "
+		<< type_decl << " for identifier " << name << "." << endl;
+	}
+	else{
+		type = type_decl;
+	}
 }
 
 void static_dispatch_class::semant(){
-	cout << " Static Dispatch: " << name << endl;
+	// cout << " Static Dispatch: " << name << endl;
 	expr->semant();
 	for(int i = actual->first();
 		actual->more(i); i = actual->next(i)){
@@ -600,7 +692,7 @@ void static_dispatch_class::semant(){
 }
 
 void dispatch_class::semant(){
-	cout << " Dispatch: " << name << endl;
+	// cout << " Dispatch: " << name << endl;
 	expr->semant();
 	for(int i = actual->first();
 		actual->more(i); i = actual->next(i)){
@@ -610,144 +702,228 @@ void dispatch_class::semant(){
 }
 
 void cond_class::semant(){
-	cout << " Condition: " << "No name" << endl;
+	// cout << " Condition: " << "No name" << endl;
 	pred->semant();
 	then_exp->semant();
 	else_exp->semant();
-	type = No_type;
+	type = classtable->lub(then_exp->get_type(),else_exp->get_type());
+	if(pred->get_type()!=Bool){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Predicate is of type " << pred->get_type()
+		<<", required Bool." << endl;
+	}
 }
 
 void loop_class::semant(){
-	cout << " Loop: " << "No name" << endl;
+	// cout << " Loop: " << "No name" << endl;
 	pred->semant();
 	body->semant();
-	type = No_type;
+	type = Object;
+	if(pred->get_type()!=Bool){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Predicate is of type " << pred->get_type()
+		<<", required Bool." << endl;
+	}
 }
 
 void typcase_class::semant(){
-	cout << "Type Case: " << "No name" << endl;
+	// cout << "Type Case: " << "No name" << endl;
 	expr->semant();
+	Case case_ = NULL;
+	Expression expr;
 	type = No_type;
+	/* @TODO Check for duplicate cases */
+	for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+		expr = cases->nth(i)->getExpr();
+		expr->semant();
+		if(i==cases->first()){
+			type = expr->get_type();
+		}
+		else{
+			type = classtable->lub(type,expr->get_type());
+		}
+	}
 }
 
 void block_class::semant(){
-	cout << " Block: " << "No name" << endl;
+	// cout << " Block: " << "No name" << endl;
 	for(int i = body->first();
 		body->more(i); i = body->next(i)){
+
 		body->nth(i)->semant();
+		type = body->nth(i)->get_type();
 	}
-	type = No_type;
 }
 
 void let_class::semant(){
-	cout << "Let: " << identifier << endl;
+	// cout << "Let: " << identifier << endl;
 	init->semant();
 	body->semant();
 	type = No_type;
 }
 
 void plus_class::semant(){
-	cout << " Plus: " << "No name" << endl;
+	// cout << " Plus: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
+	type = Int;
 	if(e1->get_type()!=Int || e2->get_type()!=Int){
 		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
-		err_stream << "Problem" << endl;
-		type = No_type;
-	}
-	else{
-		type = Int;
+		err_stream << "Non-int argument, " << e1->get_type() << " + "
+		<< e2->get_type() <<" used with +." << endl;
 	}
 }
 
 void sub_class::semant(){
-	cout << " Subtraction: " << "No name" << endl;
+	// cout << " Subtraction: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	type = Int;
+	if(e1->get_type()!=Int || e2->get_type()!=Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int argument, " << e1->get_type() << " - "
+		<< e2->get_type() <<" used with -." << endl;
+	}
 }
 
 void mul_class::semant(){
-	cout << " Multiplication: " << "No name" << endl;
+	// cout << " Multiplication: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	type = Int;
+	if(e1->get_type()!=Int || e2->get_type()!=Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int argument, " << e1->get_type() << " * "
+		<< e2->get_type() <<" used with *." << endl;
+	}
 }
 
 void divide_class::semant(){
-	cout << " Divide: " << "No name" << endl;
+	// cout << " Divide: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	type = Int;
+	if(e1->get_type()!=Int || e2->get_type()!=Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int argument, " << e1->get_type() << " / "
+		<< e2->get_type() <<" used with /." << endl;
+	}
 }
 
 void neg_class::semant(){
-	cout << " Negation: " << "No name" << endl;
+	// cout << " Negation: " << "No name" << endl;
 	e1->semant();
-	type = No_type;
+	type = Int;
+	if(e1->get_type() != Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int arguments used with ~." << endl;
+	}
 }
 
 void lt_class::semant(){
-	cout << " Less than: " << "No name" << endl;
+	// cout << " Less than: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	type = Bool;
+	if(e1->get_type() != Int || e2->get_type() != Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int arguments used with < ." << endl;
+	}
 }
 
 void eq_class::semant(){
-	cout << " Equal to: " << "No name" << endl;
+	// cout << " Equal to: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	Symbol e1_type = e1->get_type();
+	Symbol e2_type = e2->get_type();
+	type = Bool;
+	/* Both e1_type and e2_type is Int or Bool or Str and e1_type == e2_type */
+	if( e1_type != e2_type){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Comparing two different types: " << e1_type << " and "
+		<< e2_type << "." << endl;
+		return;
+	}
+	if(!(e1_type == Int || e1_type == Bool || e1_type == Str)){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Comparison allowed ony with basic types, used " << e1_type
+		<< "." << endl;
+		return ;
+	}
 }
 
 void leq_class::semant(){
-	cout << " Less than equal to: " << "No name" << endl;
+	// cout << " Less than equal to: " << "No name" << endl;
 	e1->semant();
 	e2->semant();
-	type = No_type;
+	if(e1->get_type() != Int || e2->get_type() != Int){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Non-int arguments used with <=." << endl;
+	}
+	/* Always assign type as bool, in case of error it's recovery technique */
+	type = Bool;
 }
 
 void comp_class::semant(){
-	cout << " NOT: " << "No name" << endl;
+	// cout << " NOT: " << "No name" << endl;
 	e1->semant();
-	type = No_type;
+	type = Bool;
+	if(e1->get_type()!=Bool){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Not is used with " << e1->get_type()
+		 << " instead of Bool" << endl;
+		type = No_type;
+	}
 }
 
 void int_const_class::semant(){
-	cout << " INT_CONST: " << token
-	<< endl;
+	// cout << " INT_CONST: " << token << endl;
 	type = Int;
 }
 
 void bool_const_class::semant(){
-	cout << " BOOL_CONST: " << val << endl;
+	// cout << " BOOL_CONST: " << val << endl;
 	type = Bool;
 }
 
 void string_const_class::semant(){
-	cout << " STR_CONST: " << token << endl;
+	// cout << " STR_CONST: " << token << endl;
 	type = Str;
 }
 
 void new__class::semant(){
 	/* @TODO: Check for SELF_TYPE rule */
-	cout << " NEW: " << type_name << endl;
+	// cout << " NEW: " << type_name << endl;
 	type = type_name;
+	if(classtable->lookup_class(type_name)==NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "New is used with undefined class " << type_name << "." << endl;
+		type = No_type;
+	}
 }
 
 void isvoid_class::semant(){
-	cout << " is_void: " << "No name" << endl;
+	// cout << " is_void: " << "No name" << endl;
 	e1->semant();
-	type = No_type;
+	type = Bool;
 }
 
 void no_expr_class::semant(){
-	cout << " No_expr: " << "No name" << endl;
+	// cout << " No_expr: " << "No name" << endl;
 	type = No_type;
 }
 
 void object_class::semant(){
-	cout << " OBJECT: " << name << endl;
-	type = No_type;
+	// cout << " OBJECT: " << name << endl;
+	if(name == self){
+		type = curr_class->getName();
+		return;
+	}
+	type = classtable->lookup_attr(name,curr_class->getName());
+	if(type==NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << "Undeclared indentifier " << name << "." << endl;
+		type = No_type;
+	}
 }
