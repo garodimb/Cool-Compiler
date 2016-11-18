@@ -432,14 +432,14 @@ bool ClassTable::is_sub_type(Symbol parent, Symbol child){
 	}
 	Class_ class_ = classtable->lookup_class(child);
 	Symbol class_name = class_->getName();
-	Symbol class_parent_name = class_->getParent();
-	while(class_parent_name != No_class){
+	Symbol class_parent_name;
+	while(class_name != No_class){
 		if(class_name == parent){
 			return true;
 		}
+		class_parent_name = class_->getParent();
 		class_ = classtable->lookup_class(class_parent_name);
 		class_name = class_->getName();
-		class_parent_name = class_->getParent();
 	}
 	return false;
 }
@@ -696,9 +696,9 @@ void method_class::semant(){
 		formals->nth(i)->semant();
 	}
 	expr->semant();
-	if(return_type != expr->get_type()){
+	if(!classtable->is_sub_type(return_type,expr->get_type())){
 		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
-		err_stream << "Inferred return type of method " << name
+		err_stream << "Inferred return type " << expr->get_type() << " of method " << name
 		<< " does not match with declared return type " << return_type  << "." << endl;
 	}
 	object_table->exitscope();
