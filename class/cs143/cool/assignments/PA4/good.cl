@@ -1,17 +1,17 @@
 class C {
 	a : Int;
 	b : Bool;
+	c : C <- self;
 	init(x : Int, y : Bool) : C {
-           {
-		a <- x;
-		b <- y;
-		self;
-           }
+          {
+			b <- y;
+			c <- new C;
+         }
 	};
 };
 
 Class Main {
 	main():C {
-	  (new C).init(1,true)
+		(new C).init(1,true)
 	};
 };

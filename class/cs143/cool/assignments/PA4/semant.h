@@ -42,6 +42,7 @@ public:
   void semant();
   Symbol lub(Symbol type1,Symbol type2);
   bool is_sub_type(Symbol parent, Symbol child);
+  Symbol dispatch_check(Symbol name, Symbol type_name, Expressions actual);
   int errors() { return semant_errors; }
   ostream& semant_error();
   ostream& semant_error(Class_ c);
