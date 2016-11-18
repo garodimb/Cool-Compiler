@@ -439,6 +439,9 @@ bool ClassTable::is_sub_type(Symbol parent, Symbol child){
 		}
 		class_parent_name = class_->getParent();
 		class_ = classtable->lookup_class(class_parent_name);
+		if(class_ == NULL){
+			break;
+		}
 		class_name = class_->getName();
 	}
 	return false;
@@ -655,6 +658,10 @@ void program_class::semant()
 		}
 	classtable->install_symbols(classes);
 	classtable->is_main_present();
+	if (classtable->errors()) {
+		cerr << "Compilation halted due to static semantic errors." << endl;
+		exit(1);
+	}
 	classtable->check_features();
 	if (classtable->errors()) {
 		cerr << "Compilation halted due to static semantic errors." << endl;
@@ -1013,18 +1020,13 @@ void eq_class::semant(){
 	Symbol e1_type = e1->get_type();
 	Symbol e2_type = e2->get_type();
 	type = Bool;
-	/* Both e1_type and e2_type is Int or Bool or Str and e1_type == e2_type */
-	if( e1_type != e2_type){
+	/* If e1_type or e2_type is Int or Bool or Str and e1_type != e2_type */
+	if( (e1_type == Int || e1_type == Bool || e1_type == Str || e2_type == Int || e2_type == Bool ||
+		e2_type == Str) && e1_type != e2_type){
 		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
-		err_stream << "Comparing two different types: " << e1_type << " and "
+		err_stream << "Comparing two different basic types: " << e1_type << " and "
 		<< e2_type << "." << endl;
 		return;
-	}
-	if(!(e1_type == Int || e1_type == Bool || e1_type == Str)){
-		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
-		err_stream << "Comparison allowed ony with basic types, used " << e1_type
-		<< "." << endl;
-		return ;
 	}
 }
 
