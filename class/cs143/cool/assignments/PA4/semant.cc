@@ -377,9 +377,6 @@ bool ClassTable::check_features(){
 }
 
 Symbol ClassTable::lub(Symbol type1, Symbol type2){
-	std::map<Symbol,bool> hash_table;
-	Class_ class_ = lookup_class(type1);
-	Class_ class_parent_name = NULL;
 
 	if (type1 == SELF_TYPE) {
 		type1 = curr_class->getName();
@@ -395,6 +392,10 @@ Symbol ClassTable::lub(Symbol type1, Symbol type2){
 	else if(type2 == No_type){
 		return type1;
 	}
+
+	std::map<Symbol,bool> hash_table;
+	Class_ class_ = lookup_class(type1);
+	Class_ class_parent_name = NULL;
 
 	while(class_->getParent() != No_class){
 		hash_table[class_->getName()] = true;
@@ -745,7 +746,16 @@ void formal_class::semant(){
 
 void branch_class::semant(){
 	//cout<< " Branch " << name << endl;
+	ObjectTable *object_table = curr_class->getObjectTable();
+	if(classtable->lookup_class(type_decl)==NULL){
+		ostream& err_stream = classtable->semant_error(curr_class->get_filename(),this);
+		err_stream << " Class " << type_decl << " of case expression is undefined." << endl;
+		return ;
+	}
+	object_table->enterscope();
+	object_table->addid(name,&type_decl);
 	expr->semant();
+	object_table->exitscope();
 }
 
 void assign_class::semant(){
@@ -870,16 +880,16 @@ void loop_class::semant(){
 }
 
 void typcase_class::check_dup(){
-	Expression e1, e2;
+	Symbol type1, type2;
 	for(int i = cases->first(); cases->more(i); i = cases->next(i)){
-		e1 = cases->nth(i)->getExpr();
+		type1 = cases->nth(i)->getTypedecl();
 		for(int j = i+1; cases->more(j); j = cases->next(j)){
-			e2 = cases->nth(j)->getExpr();
-			if(e1->get_type() == e2->get_type()){
+			type2 = cases->nth(j)->getTypedecl();
+			if(type1 == type2){
 				ostream &err_stream = classtable->semant_error(
 					curr_class->get_filename(), this);
 				err_stream << " Multiple branches evalues to "
-				<< " same type " << e1->get_type() << "." << endl;
+				<< " same type " << type1 << "." << endl;
 				return;
 			}
 		}
@@ -889,12 +899,11 @@ void typcase_class::check_dup(){
 void typcase_class::semant(){
 	//cout<< "Type Case: " << "No name" << endl;
 	expr->semant();
-	Case case_ = NULL;
 	Expression expr_case;
 	type = No_type;
 	for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+		cases->nth(i)->semant();
 		expr_case = cases->nth(i)->getExpr();
-		expr_case->semant();
 		if(i==cases->first()){
 			type = expr_case->get_type();
 		}
@@ -903,6 +912,7 @@ void typcase_class::semant(){
 		}
 	}
 	check_dup();
+
 }
 
 void block_class::semant(){

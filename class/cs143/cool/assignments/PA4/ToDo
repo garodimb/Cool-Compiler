@@ -1,7 +1,6 @@
-1. Handle self and SELF_TYPE
-2. Semantic rule for branch
-3. Merge code for dispatch_common
-4. Break code of install_classes
-5. Appropriate error messages
-6. README file
-7. Creating test cases
+1. Break code of install_classes
+2. Appropriate error messages
+3. Undefined classes/vriables/methods can lead to coredump
+	if semantic analysis is carried even after detection of error.
+	Handle all such conditions. Specially when lookup for class or lookup for
+	attribute or lookup for method name is done.
