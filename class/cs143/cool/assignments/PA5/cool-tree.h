@@ -11,7 +11,7 @@
 
 #include "tree.h"
 #include "cool-tree.handcode.h"
-
+#include <list>
 
 // define the class for phylum
 // define simple phylum - Program
@@ -44,12 +44,18 @@ public:
 
 // define simple phylum - Feature
 typedef class Feature_class *Feature;
+typedef std::list<Feature> FeatureList;
+typedef FeatureList *FeatureListP;
 
 class Feature_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
-
+   virtual void first_pass(FeatureListP methods,
+      FeatureListP attrs) = 0;
+   virtual Symbol get_name() = 0;
+   virtual void set_parent(Symbol parent_name) = 0;
+   virtual void code_dispTab(ostream &str) = 0;
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
 #endif
@@ -175,6 +181,7 @@ public:
 class method_class : public Feature_class {
 public:
    Symbol name;
+   Symbol parent;
    Formals formals;
    Symbol return_type;
    Expression expr;
@@ -187,6 +194,11 @@ public:
    }
    Feature copy_Feature();
    void dump(ostream& stream, int n);
+   void first_pass(FeatureListP methods,
+      FeatureListP attrs);
+   Symbol get_name(){ return name; }
+   void set_parent(Symbol parent_name) { parent = parent_name; }
+   void code_dispTab(ostream &str);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -201,6 +213,7 @@ public:
 class attr_class : public Feature_class {
 public:
    Symbol name;
+   Symbol parent;
    Symbol type_decl;
    Expression init;
 public:
@@ -211,6 +224,11 @@ public:
    }
    Feature copy_Feature();
    void dump(ostream& stream, int n);
+   void first_pass(FeatureListP methods,
+      FeatureListP attrs);
+   Symbol get_name() { return name; }
+   void set_parent(Symbol parent_name) { parent = parent_name; }
+   void code_dispTab(ostream &str) { }
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS

@@ -27,6 +27,10 @@
 
 extern void emit_string_constant(ostream& str, char *s);
 extern int cgen_debug;
+static int max_tag = 0;
+static int intclasstag;
+static int stringclasstag;
+static int boolclasstag;
 
 //
 // Three symbols from the semantic analyzer (semant.cc) are used.
@@ -399,11 +403,7 @@ void StringEntry::code_def(ostream& s, int stringclasstag)
   code_ref(s);  s  << LABEL                                             // label
       << WORD << stringclasstag << endl                                 // tag
       << WORD << (DEFAULT_OBJFIELDS + STRING_SLOTS + (len+4)/4) << endl // size
-      << WORD;
-
-
- /***** Add dispatch information for class String ******/
-
+      << WORD; emit_disptable_ref(Str,s);
       s << endl;                                              // dispatch table
       s << WORD;  lensym->code_ref(s);  s << endl;            // string length
   emit_string_constant(s,str);                                // ascii string
@@ -442,10 +442,7 @@ void IntEntry::code_def(ostream &s, int intclasstag)
   code_ref(s);  s << LABEL                                // label
       << WORD << intclasstag << endl                      // class tag
       << WORD << (DEFAULT_OBJFIELDS + INT_SLOTS) << endl  // object size
-      << WORD; 
-
- /***** Add dispatch information for class Int ******/
-
+      << WORD; emit_disptable_ref(Int, s);
       s << endl;                                          // dispatch table
       s << WORD << str << endl;                           // integer value
 }
@@ -486,10 +483,7 @@ void BoolConst::code_def(ostream& s, int boolclasstag)
   code_ref(s);  s << LABEL                                  // label
       << WORD << boolclasstag << endl                       // class tag
       << WORD << (DEFAULT_OBJFIELDS + BOOL_SLOTS) << endl   // object size
-      << WORD;
-
- /***** Add dispatch information for class Bool ******/
-
+      << WORD; emit_disptable_ref(Bool, s);
       s << endl;                                            // dispatch table
       s << WORD << val << endl;                             // value (0 or 1)
 }
@@ -619,16 +613,12 @@ void CgenClassTable::code_constants()
 
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
-   stringclasstag = 0 /* Change to your String class tag here */;
-   intclasstag =    0 /* Change to your Int class tag here */;
-   boolclasstag =   0 /* Change to your Bool class tag here */;
-
    enterscope();
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
    install_basic_classes();
    install_classes(classes);
    build_inheritance_tree();
-
+   first_pass();
    code();
    exitscope();
 }
@@ -816,6 +806,119 @@ void CgenNode::set_parentnd(CgenNodeP p)
 }
 
 
+void CgenClassTable::first_pass()
+{
+	root()->first_pass();
+}
+
+void CgenNode::first_pass()
+{
+	set_tag();
+	if(parentnd && parentnd->get_methods()){
+		methods = new FeatureList(parentnd->get_methods()->begin(),parentnd->get_methods()->end());
+	}
+	else{
+		methods = new FeatureList();
+	}
+	if(parentnd && parentnd->get_attrs()){
+		attrs = new FeatureList(parentnd->get_attrs()->begin(),parentnd->get_attrs()->end());
+	}
+	else{
+		attrs = new FeatureList();
+	}
+
+	for(int i = features->first(); features->more(i); i = features->next(i)) {
+		features->nth(i)->first_pass(methods, attrs);
+		features->nth(i)->set_parent(name);
+	}
+
+	for(List<CgenNode> *l = children; l; l = l->tl()) {
+		l->hd()->first_pass();
+	}
+}
+
+static FeatureList::iterator name_lookup(Symbol name, FeatureListP feature_list)
+{
+	FeatureList::iterator it;
+	assert(feature_list!=NULL);
+	for(it = feature_list->begin(); it != feature_list->end(); ++it){
+		if((*it)->get_name()==name){
+			return it;
+		}
+	}
+	return it;
+}
+
+void method_class::first_pass(FeatureListP methods, FeatureListP attrs)
+{
+	FeatureList::iterator it = name_lookup(name,methods);
+	if(it == methods->end()){
+		methods->push_back(this);
+	}
+}
+
+void attr_class::first_pass(FeatureListP methods, FeatureListP attrs)
+{
+	attrs->push_back(this);
+}
+
+void CgenNode::set_tag()
+{
+	tag = ++max_tag;
+	if(name==Int){
+		intclasstag = tag;
+	}
+	else if(name==Str){
+		stringclasstag = tag;
+	}
+	else if(name==Bool){
+		boolclasstag = tag;
+	}
+}
+
+void CgenClassTable::code_protObj()
+{
+
+}
+
+void CgenNode::code_protObj(ostream &str)
+{
+
+}
+
+void CgenClassTable::code_class_nameTab()
+{
+
+}
+
+void CgenNode::code_class_nameTab(ostream &str)
+{
+
+}
+
+void CgenClassTable::code_dispTab()
+{
+	root()->code_dispTab(str);
+}
+
+void CgenNode::code_dispTab(ostream &str)
+{
+	emit_disptable_ref(name,str);
+	str << LABEL;
+	for(FeatureList::iterator it = methods->begin(); it != methods->end(); ++it){
+		(*it)->code_dispTab(str);
+	}
+
+	for(List<CgenNode> *l = children; l; l = l->tl()) {
+		l->hd()->code_dispTab(str);
+	}
+}
+
+void method_class::code_dispTab(ostream &str)
+{
+	str << WORD; emit_method_ref(parent,name,str);
+	str << endl;
+}
 
 void CgenClassTable::code()
 {
@@ -828,11 +931,14 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "coding constants" << endl;
   code_constants();
 
-//                 Add your code to emit
-//                   - prototype objects
-//                   - class_nameTab
-//                   - dispatch tables
-//
+  if (cgen_debug) cout << "coding prototype objects" << endl;
+  code_protObj();
+
+  if (cgen_debug) cout << "coding class_nameTab" << endl;
+  code_class_nameTab();
+
+  if (cgen_debug) cout << "coding dispatch tables" << endl;
+  code_dispTab();
 
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
@@ -864,6 +970,8 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
    basic_status(bstatus)
 { 
    stringtable.add_string(name->get_string());          // Add class name to string table
+   methods = NULL;
+   attrs = NULL;
 }
 
 
