@@ -3,9 +3,22 @@
 # Run this program with QtSpim
 
 .data				# Text section
+.align 2
 read_msg: 	.asciiz "Enter number: "
 print_msg: 	.asciiz	"Result: "
 print_exit:	.asciiz "\nThank you!"
+str_const0:
+	.word	0
+	.word	6
+	.word	
+#	.word	int_const1
+	.ascii	"Main"
+	.byte	0	
+	.align	2
+	.word	-1
+	
+int_const0:
+	.word	1
 
 .text					# Code section
 .globl main
