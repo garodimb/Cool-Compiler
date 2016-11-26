@@ -56,6 +56,7 @@ public:
    virtual Symbol get_name() = 0;
    virtual void set_parent(Symbol parent_name) = 0;
    virtual void code_dispTab(ostream &str) = 0;
+   virtual void code_protObj(ostream &str) = 0;
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
 #endif
@@ -199,6 +200,7 @@ public:
    Symbol get_name(){ return name; }
    void set_parent(Symbol parent_name) { parent = parent_name; }
    void code_dispTab(ostream &str);
+   void code_protObj(ostream &str) {}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -228,7 +230,8 @@ public:
       FeatureListP attrs);
    Symbol get_name() { return name; }
    void set_parent(Symbol parent_name) { parent = parent_name; }
-   void code_dispTab(ostream &str) { }
+   void code_dispTab(ostream &str) {}
+   void code_protObj(ostream &str);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS

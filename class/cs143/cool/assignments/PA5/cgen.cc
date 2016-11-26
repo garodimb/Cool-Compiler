@@ -878,12 +878,50 @@ void CgenNode::set_tag()
 
 void CgenClassTable::code_protObj()
 {
-
+	root()->code_protObj(str);
 }
 
 void CgenNode::code_protObj(ostream &str)
 {
+	// Add -1 eye catcher
+	str << WORD << "-1" << endl;
+	emit_protobj_ref(name, str);
+	str << LABEL;
+	str << WORD << tag << endl
+		<< WORD << "SIZE" << endl
+		<< WORD;
+	emit_disptable_ref(name,str);
+	str << endl;
+	for(FeatureList::iterator it = attrs->begin(); it != attrs->end(); ++it){
+		(*it)->code_protObj(str);
+	}
+	for(List<CgenNode> *l = children; l; l = l->tl()) {
+		l->hd()->code_protObj(str);
+	}
 
+}
+
+/* Code for attributes in object prototype */
+void attr_class::code_protObj(ostream &str)
+{
+	str << WORD;
+  if (type_decl == Str) {
+	/* For String attribute initialize it to empty string */
+    StringEntry *string_entry = stringtable.lookup_string("");
+    assert(string_entry);
+    string_entry->code_ref(str);
+  } else if (type_decl == Int) {
+	/* For Int attribute initialize it to 0 */
+    IntEntry *int_entry = inttable.lookup_string("0");
+    assert(int_entry);
+    int_entry->code_ref(str);
+  } else if (type_decl == Bool) {
+	/* For Bool attribute initialize it false */
+    falsebool.code_ref(str);
+  } else {
+    str << 0;
+  }
+  str << endl;
 }
 
 void CgenClassTable::code_class_nameTab()
@@ -931,14 +969,14 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "coding constants" << endl;
   code_constants();
 
+   if (cgen_debug) cout << "coding dispatch tables" << endl;
+  code_dispTab();
+
   if (cgen_debug) cout << "coding prototype objects" << endl;
   code_protObj();
 
   if (cgen_debug) cout << "coding class_nameTab" << endl;
   code_class_nameTab();
-
-  if (cgen_debug) cout << "coding dispatch tables" << endl;
-  code_dispTab();
 
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
