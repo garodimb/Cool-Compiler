@@ -29,6 +29,7 @@ private:
    void code_global_data();
    void code_protObj();
    void code_class_nameTab();
+   void code_class_ObjTab();
    void code_dispTab();
    void code_global_text();
    void code_bools(int);
@@ -46,6 +47,7 @@ private:
    void build_inheritance_tree();
    void set_relations(CgenNodeP nd);
    void first_pass();
+   CgenNodeP lookup_class_by_tag(int tag);
 public:
    CgenClassTable(Classes, ostream& str);
    void code();
@@ -76,10 +78,12 @@ public:
    int basic() { return (basic_status == Basic); }
    FeatureListP get_methods() { return methods; }
    FeatureListP get_attrs() { return attrs; }
+   int get_tag() { return tag; }
 
    void first_pass();
    void code_protObj(ostream &str);
    void code_class_nameTab(ostream &str);
+   void code_class_ObjTab(ostream &str);
    void code_dispTab(ostream &str);
 };
 

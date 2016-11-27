@@ -864,7 +864,8 @@ void attr_class::first_pass(FeatureListP methods, FeatureListP attrs)
 
 void CgenNode::set_tag()
 {
-	tag = ++max_tag;
+	tag = max_tag;
+	++max_tag;
 	if(name==Int){
 		intclasstag = tag;
 	}
@@ -888,7 +889,7 @@ void CgenNode::code_protObj(ostream &str)
 	emit_protobj_ref(name, str);
 	str << LABEL;
 	str << WORD << tag << endl
-		<< WORD << "SIZE" << endl
+		<< WORD << DEFAULT_OBJFIELDS + attrs->size() << endl
 		<< WORD;
 	emit_disptable_ref(name,str);
 	str << endl;
@@ -924,21 +925,73 @@ void attr_class::code_protObj(ostream &str)
   str << endl;
 }
 
+CgenNodeP CgenClassTable::lookup_class_by_tag(int tag)
+{
+	for(List<CgenNode> *l = nds; l; l = l->tl()) {
+		if (l->hd()->get_tag() == tag) {
+		return l->hd();
+		}
+	}
+	return NULL;
+}
+
+/* A table, which at index (class tag) ∗ 4 contains a pointer
+   to a String object containing the name of the class associated
+*/
+
 void CgenClassTable::code_class_nameTab()
 {
-
+	CgenNodeP cgen_node;
+	str << CLASSNAMETAB << LABEL;
+	/* Add entry in table by increasing tag number */
+	for(int i = 0 ; i < max_tag; ++i){
+		cgen_node = lookup_class_by_tag(i);
+		assert(cgen_node);
+		cgen_node->code_class_nameTab(str);
+	}
 }
 
+/* Entry in class name table, pointing to a String object containing
+   the name of the class associated
+*/
 void CgenNode::code_class_nameTab(ostream &str)
 {
-
+	StringEntry *string_entry = stringtable.lookup_string(name->get_string());
+	assert(string_entry);
+	str << WORD; string_entry->code_ref(str); str << endl;
 }
 
+/* A table, which at index (class tag) ∗ 8 contains a pointer to
+   the prototype object and at index (class tag) ∗ 8 + 4 contains
+   a pointer to the initialization method for that class.
+*/
+void CgenClassTable::code_class_ObjTab()
+{
+	CgenNodeP cgen_node;
+	str << CLASSOBJTAB << LABEL;
+	for(int i = 0 ; i < max_tag; ++i){
+		cgen_node = lookup_class_by_tag(i);
+		assert(cgen_node);
+		cgen_node->code_class_ObjTab(str);
+	}
+}
+
+/* Entry in class_ObjTab, pointes to prototype object and
+   initialization block
+*/
+void CgenNode::code_class_ObjTab(ostream &str)
+{
+	str << WORD; emit_protobj_ref(name, str); str << endl;
+	str << WORD; emit_init_ref(name, str); str << endl;
+}
+
+/* Dispatch tables */
 void CgenClassTable::code_dispTab()
 {
 	root()->code_dispTab(str);
 }
 
+/* Dispatch tables of class */
 void CgenNode::code_dispTab(ostream &str)
 {
 	emit_disptable_ref(name,str);
@@ -952,6 +1005,7 @@ void CgenNode::code_dispTab(ostream &str)
 	}
 }
 
+/* Dispatch table entry, reference to method */
 void method_class::code_dispTab(ostream &str)
 {
 	str << WORD; emit_method_ref(parent,name,str);
@@ -969,14 +1023,17 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "coding constants" << endl;
   code_constants();
 
+  if (cgen_debug) cout << "coding class_nameTab" << endl;
+  code_class_nameTab();
+
+  if(cgen_debug) cout << " coding class_ObjTab" << endl;
+  code_class_ObjTab();
+
    if (cgen_debug) cout << "coding dispatch tables" << endl;
   code_dispTab();
 
   if (cgen_debug) cout << "coding prototype objects" << endl;
   code_protObj();
-
-  if (cgen_debug) cout << "coding class_nameTab" << endl;
-  code_class_nameTab();
 
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
