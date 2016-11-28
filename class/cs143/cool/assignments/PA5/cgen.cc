@@ -31,6 +31,9 @@ static int max_tag = 0;
 static int intclasstag;
 static int stringclasstag;
 static int boolclasstag;
+static CgenClassTableP curr_classtable;
+static CgenNodeP curr_class;
+
 
 //
 // Three symbols from the semantic analyzer (semant.cc) are used.
@@ -358,6 +361,69 @@ static void emit_gc_check(char *source, ostream &s)
   s << JAL << "_gc_check" << endl;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Utility functions to support code generation
+//
+////////////////////////////////////////////////////////////////////////////////
+
+
+static FeatureList::iterator lookup_feature_by_name(Symbol name, FeatureListP feature_list)
+{
+  FeatureList::iterator it;
+  assert(feature_list!=NULL);
+  for(it = feature_list->begin(); it != feature_list->end(); ++it){
+    if((*it)->get_name()==name){
+      return it;
+    }
+  }
+  return it;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Activation record structure
+// DEFAULT_FRAME = 3 (Old FP + Old SELF + RA)
+// Actual Parameter starts at : CURR_FP + DEFAULT_FRAME - 1(Xn is closet to FP)
+// +----------+------------+
+// |     x1   |            |
+// +----------+            +
+// |    x2    |            |
+// +----------+   Actual   +
+// |  ......  | Parameters |
+// +----------+            +
+// |     xn   |            |
+// +----------+------------+
+// |  Old FP  |            |
+// +----------+------------+
+// | Old SELF |            |
+// +----------+------------+
+// |    RA    |  New FP    |
+// +----------+------------+
+//
+///////////////////////////////////////////////////////////////////////////////
+/* callee callsequence on method call */
+static void callee_callseq(ostream &str)
+{
+  emit_addiu(SP, SP, -3 * WORD_SIZE, str);
+  emit_store(FP, 3, SP, str); // Store Old frame pointer
+  emit_store(SELF, 2, SP, str); // Store Old self object address
+  emit_store(RA, 1, SP, str); // Store return address
+  // Load frame pointer with new value.
+  // Frame pointer points to top of frame(At return address)
+  emit_addiu(FP, SP, WORD_SIZE, str);
+  //Move SELF object address passed in ACC to SELF
+  emit_move(SELF, ACC, str);
+}
+
+/* Callee call sequence on return from method */
+static void callee_callseq_ret(int num_args, ostream &str)
+{
+  emit_load(FP, 3, SP, str); // Restore FP
+  emit_load(SELF, 2, SP, str); // Restore SELF
+  emit_load(RA, 1, SP, str); // Load return address to return
+  emit_addiu(SP , SP, (3 + num_args) * WORD_SIZE, str); // Restore statck
+  emit_return(str); // Return from method
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -854,21 +920,9 @@ void CgenNode::first_pass()
 	}
 }
 
-static FeatureList::iterator name_lookup(Symbol name, FeatureListP feature_list)
-{
-	FeatureList::iterator it;
-	assert(feature_list!=NULL);
-	for(it = feature_list->begin(); it != feature_list->end(); ++it){
-		if((*it)->get_name()==name){
-			return it;
-		}
-	}
-	return it;
-}
-
 void method_class::first_pass(FeatureListP methods, FeatureListP attrs)
 {
-	FeatureList::iterator it = name_lookup(name,methods);
+	FeatureList::iterator it = lookup_feature_by_name(name,methods);
 	if(it == methods->end()){
 		methods->push_back(this);
 	}
@@ -1029,6 +1083,64 @@ void method_class::code_dispTab(ostream &str)
 	str << endl;
 }
 
+void CgenClassTable::code_class_methods()
+{
+  curr_classtable = this;
+  for(List<CgenNode> *l = nds; l; l = l->tl()) {
+    l->hd()->code_class_methods(str);
+  }
+}
+
+void CgenNode::code_class_methods(ostream &str)
+{
+  curr_class = this;
+  if(basic()){
+    return ;
+  }
+  for(int i = features->first();
+    features->more(i); i = features->next(i)){
+    features->nth(i)->code_class_method(str);
+  }
+}
+
+void method_class::code_class_method(ostream &str)
+{
+  // Emit label for method
+  emit_method_ref(parent, name, str); str << LABEL;
+  callee_callseq(str);
+
+  /* Get symbol table and place formal parameters,
+     Order of processing formal parameter should be
+     same as pushing actual parameter
+  */
+  CgenSymTable *symtable = curr_class->get_symtable();
+  symtable->enterscope();
+
+  int offset = 0;
+  int num_formals = formals->len();
+  if(cgen_debug)
+    cout << "[INFO] Processing formals of " << curr_class->get_name()
+    << "." << name << " method" << endl;
+  for(int i = formals->first();
+    formals->more(i); i = formals->next(i)){
+    /* Compute offset from current fp where actual arguments
+       will get pushed. Arguments are push x1, x2, ... ,xn in
+       this order
+    */
+    offset = FRAME_DEFAULT + num_formals - i -1;
+    if(cgen_debug)
+      cout << "[INFO] Symbol: " << formals->nth(i)->get_name()
+           << "." << formals->nth(i)->get_name() << ", Address: "
+           << "FP + " << offset << endl;
+    symtable->addid(formals->nth(i)->get_name(),
+      new SymbolInfo(FP, offset));
+  }
+  // Generate code for method body
+  expr->code(str);
+  symtable->exitscope();
+  callee_callseq_ret(formals->len(),str);
+}
+
 void CgenClassTable::code()
 {
   if (cgen_debug) cout << "[INFO] coding global data" << endl;
@@ -1055,10 +1167,8 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "[INFO] coding global text" << endl;
   code_global_text();
 
-//                 Add your code to emit
-//                   - object initializer
-//                   - the class methods
-//                   - etc...
+  if (cgen_debug) cout << "[INFO] coding class methods" << endl;
+  code_class_methods();
 
 }
 

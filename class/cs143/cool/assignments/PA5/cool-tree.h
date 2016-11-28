@@ -57,6 +57,7 @@ public:
    virtual void set_parent(Symbol parent_name) = 0;
    virtual void code_dispTab(ostream &str) = 0;
    virtual void code_protObj(ostream &str) = 0;
+   virtual void code_class_method(ostream &str) = 0;
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
 #endif
@@ -70,6 +71,7 @@ class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
+   virtual Symbol get_name() = 0;
 
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
@@ -201,6 +203,7 @@ public:
    void set_parent(Symbol parent_name) { parent = parent_name; }
    void code_dispTab(ostream &str);
    void code_protObj(ostream &str) {}
+   void code_class_method(ostream &str);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -232,6 +235,7 @@ public:
    void set_parent(Symbol parent_name) { parent = parent_name; }
    void code_dispTab(ostream &str) {}
    void code_protObj(ostream &str);
+   void code_class_method(ostream &str) {}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -254,6 +258,7 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
+   Symbol get_name() { return name; }
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS

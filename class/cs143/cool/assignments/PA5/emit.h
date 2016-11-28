@@ -14,6 +14,7 @@
 
 #include "stringtab.h"
 
+#define FRAME_DEFAULT 3 // Offset from frame pointer to formal parameters
 #define MAXINT  100000000    
 #define WORD_SIZE    4
 #define LOG_WORD_SIZE 2     // for logical shifts

@@ -32,6 +32,7 @@ private:
    void code_class_ObjTab();
    void code_dispTab();
    void code_global_text();
+   void code_class_methods();
    void code_bools(int);
    void code_select_gc();
    void code_constants();
@@ -98,6 +99,7 @@ public:
    void code_class_nameTab(ostream &str);
    void code_class_ObjTab(ostream &str);
    void code_dispTab(ostream &str);
+   void code_class_methods(ostream &str);
 };
 
 class BoolConst 
