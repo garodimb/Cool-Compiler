@@ -58,6 +58,7 @@ public:
    virtual void code_dispTab(ostream &str) = 0;
    virtual void code_protObj(ostream &str) = 0;
    virtual void code_class_method(ostream &str) = 0;
+   virtual void code_object_init(FeatureListP attrs, ostream &str) = 0;
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
 #endif
@@ -204,6 +205,7 @@ public:
    void code_dispTab(ostream &str);
    void code_protObj(ostream &str) {}
    void code_class_method(ostream &str);
+   void code_object_init(FeatureListP attrs, ostream &str){}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -236,6 +238,7 @@ public:
    void code_dispTab(ostream &str) {}
    void code_protObj(ostream &str);
    void code_class_method(ostream &str) {}
+   void code_object_init(FeatureListP attrs, ostream &str);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS

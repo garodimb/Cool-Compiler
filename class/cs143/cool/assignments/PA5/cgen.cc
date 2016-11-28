@@ -380,6 +380,13 @@ static FeatureList::iterator lookup_feature_by_name(Symbol name, FeatureListP fe
   return it;
 }
 
+static int get_attr_offset(Symbol name, FeatureListP attrs)
+{
+  FeatureList::iterator it = lookup_feature_by_name(name, attrs);
+  assert(it != attrs->end());
+  return std::distance(attrs->begin(), it) + DEFAULT_OBJFIELDS;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Activation record structure
 // DEFAULT_FRAME = 3 (Old FP + Old SELF + RA)
@@ -1141,6 +1148,53 @@ void method_class::code_class_method(ostream &str)
   callee_callseq_ret(formals->len(),str);
 }
 
+void CgenClassTable::code_object_init()
+{
+  curr_classtable = this;
+  for(List<CgenNode> *l = nds; l; l = l->tl()) {
+    l->hd()->code_object_init(str);
+  }
+}
+
+void CgenNode::code_object_init(ostream &str)
+{
+  curr_class = this;
+  // Label for init method
+  emit_init_ref(name, str); str << LABEL;
+  callee_callseq(str);
+
+  /* Initialize parent object, checking get_attrs to make sure parent is
+     not No_Class
+  */
+  if(parentnd && parentnd->get_attrs()){
+    str << JAL; emit_init_ref(parentnd->get_name(),str);
+    str << endl;
+  }
+
+  // Process each attribute of class
+  for(int i = features->first();
+    features->more(i); i = features->next(i)){
+    features->nth(i)->code_object_init(attrs, str);
+  }
+
+  // Move self to accumalator as a result(Optional)
+  emit_move(ACC, SELF, str);
+  callee_callseq_ret(0,str);
+}
+
+void attr_class::code_object_init(FeatureListP attrs, ostream &str)
+{
+  if (init->type){
+    // Evaluate init expression
+    init->code(str);
+
+    // Get offset and store result from ACC to offset
+    // This will overwride defalut value of attr
+    int offset = get_attr_offset(name, attrs);
+    emit_store(ACC, offset, SELF, str);
+  }
+}
+
 void CgenClassTable::code()
 {
   if (cgen_debug) cout << "[INFO] coding global data" << endl;
@@ -1166,6 +1220,9 @@ void CgenClassTable::code()
 
   if (cgen_debug) cout << "[INFO] coding global text" << endl;
   code_global_text();
+
+  if(cgen_debug) cout << "[INFO] coding object initializer" << endl;
+  code_object_init();
 
   if (cgen_debug) cout << "[INFO] coding class methods" << endl;
   code_class_methods();
