@@ -1330,8 +1330,11 @@ void static dispatch_common(Expression expr, Symbol type_name, Symbol name,
 
   if (type_name == No_type) {
     type_name = expr->get_type();
+    emit_load(T1, DISPTABLE_OFFSET, ACC, str);
   }
-  emit_partial_load_address(T1, str); emit_disptable_ref(type_name, str); str << endl;
+  else{
+    emit_partial_load_address(T1, str); emit_disptable_ref(type_name, str); str << endl;
+  }
 
   int offset = get_method_offset(type_name, name);
   emit_load(T1, offset, T1, str);
@@ -1416,6 +1419,13 @@ void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
+  if (name == self) {
+    emit_move(ACC, SELF, s);
+  } else {
+    SymbolInfo *symbol_info = curr_class->get_symtable()->lookup(name);
+    assert(symbol_info);
+    emit_load(ACC, symbol_info->get_offset(), symbol_info->get_base_reg(), s);
+  }
 }
 
 
