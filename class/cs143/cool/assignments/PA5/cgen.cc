@@ -1299,6 +1299,10 @@ SymbolInfo::SymbolInfo(char *base_reg, int offset) :
 //*****************************************************************
 
 void assign_class::code(ostream &s) {
+	expr->code(str);
+	SymbolInfo *symbol_info = curr_class->get_symtable->lookup(name);
+	assert(symbol_info);
+	emit_store(ACC, symbol_info->get_offset(), symbol_info->get_base_reg(),s);
 }
 
 /* Dispatch of typpe expr@type_name.name(actual) */
@@ -1326,8 +1330,13 @@ void static dispatch_common(Expression expr, Symbol type_name, Symbol name,
   emit_load_imm(T1, curr_class->get_line_number(), str);
   emit_jal("_dispatch_abort", str); // Call will not be returned here
 
-  emit_label_def(label_postfix, str);
+  emit_label_def(label_postfix, str); // Location to jump
 
+  /* type_name is No_type in case of dynamic dispatch
+	 ACC contains type of expr evaluated
+  */
+
+  /* Load proper dispatch table */
   if (type_name == No_type) {
     type_name = expr->get_type();
     emit_load(T1, DISPTABLE_OFFSET, ACC, str);
@@ -1336,11 +1345,13 @@ void static dispatch_common(Expression expr, Symbol type_name, Symbol name,
     emit_partial_load_address(T1, str); emit_disptable_ref(type_name, str); str << endl;
   }
 
+  /* Load method def address in T1 */
   int offset = get_method_offset(type_name, name);
   emit_load(T1, offset, T1, str);
-  emit_jalr(T1, str);
+  emit_jalr(T1, str); // Jump to method def
   label_postfix++;
 }
+
 void static_dispatch_class::code(ostream &s) {
   dispatch_common(expr, type_name, name, actual, s);
 }
