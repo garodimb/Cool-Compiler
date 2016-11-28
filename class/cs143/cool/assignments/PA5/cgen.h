@@ -54,6 +54,18 @@ public:
    CgenNodeP root();
 };
 
+class SymbolInfo {
+  private:
+    char *base_reg;
+    int offset;
+
+  public:
+    SymbolInfo(char *base_reg, int offset);
+    char *get_base_reg() { return base_reg; }
+    int get_offset() { return offset; }
+};
+
+typedef SymbolTable<Symbol, SymbolInfo> CgenSymTable;
 
 class CgenNode : public class__class {
 private: 
@@ -63,6 +75,7 @@ private:
                                               // `NotBasic' otherwise
    FeatureListP methods;
    FeatureListP attrs;
+   CgenSymTable *symtable;
    int tag, max_class_tag;
    void set_tag();
 
@@ -79,7 +92,7 @@ public:
    FeatureListP get_methods() { return methods; }
    FeatureListP get_attrs() { return attrs; }
    int get_tag() { return tag; }
-
+   CgenSymTable *get_symtable() { return symtable; }
    void first_pass();
    void code_protObj(ostream &str);
    void code_class_nameTab(ostream &str);

@@ -827,10 +827,27 @@ void CgenNode::first_pass()
 		attrs = new FeatureList();
 	}
 
-	for(int i = features->first(); features->more(i); i = features->next(i)) {
+	/* Process all the features of class(attrs,methods). */
+  for(int i = features->first(); features->more(i); i = features->next(i)) {
 		features->nth(i)->first_pass(methods, attrs);
 		features->nth(i)->set_parent(name);
 	}
+
+  /* Add all symbols from parent as well as this class to
+     symbol table */
+  symtable = new CgenSymTable();
+  symtable->enterscope();
+
+  int offset = 0;
+  if(cgen_debug)
+    cout << "[INFO] Creating Symbol table for " << name << " class" << endl;
+  for(FeatureList::iterator it = attrs->begin(); it != attrs->end(); ++it){
+    if(cgen_debug)
+      cout << "[INFO] Symbol: " << name << "." << (*it)->get_name() << ", Address: "
+      << SELF << "+" << offset + DEFAULT_OBJFIELDS << endl;
+    symtable->addid((*it)->get_name(), new SymbolInfo(SELF,offset+DEFAULT_OBJFIELDS));
+    ++offset;
+  }
 
 	for(List<CgenNode> *l = children; l; l = l->tl()) {
 		l->hd()->first_pass();
@@ -1014,28 +1031,28 @@ void method_class::code_dispTab(ostream &str)
 
 void CgenClassTable::code()
 {
-  if (cgen_debug) cout << "coding global data" << endl;
+  if (cgen_debug) cout << "[INFO] coding global data" << endl;
   code_global_data();
 
-  if (cgen_debug) cout << "choosing gc" << endl;
+  if (cgen_debug) cout << "[INFO] choosing gc" << endl;
   code_select_gc();
 
-  if (cgen_debug) cout << "coding constants" << endl;
+  if (cgen_debug) cout << "[INFO] coding constants" << endl;
   code_constants();
 
-  if (cgen_debug) cout << "coding class_nameTab" << endl;
+  if (cgen_debug) cout << "[INFO] coding class_nameTab" << endl;
   code_class_nameTab();
 
-  if(cgen_debug) cout << " coding class_ObjTab" << endl;
+  if(cgen_debug) cout << "[INFO] coding class_ObjTab" << endl;
   code_class_ObjTab();
 
-   if (cgen_debug) cout << "coding dispatch tables" << endl;
+   if (cgen_debug) cout << "[INFO] coding dispatch tables" << endl;
   code_dispTab();
 
-  if (cgen_debug) cout << "coding prototype objects" << endl;
+  if (cgen_debug) cout << "[INFO] coding prototype objects" << endl;
   code_protObj();
 
-  if (cgen_debug) cout << "coding global text" << endl;
+  if (cgen_debug) cout << "[INFO] coding global text" << endl;
   code_global_text();
 
 //                 Add your code to emit
@@ -1069,6 +1086,15 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
    attrs = NULL;
 }
 
+////////////////////////////////////////////////////////////////////
+//
+// SymbolInfo methods
+//
+////////////////////////////////////////////////////////////////////
+
+SymbolInfo::SymbolInfo(char *base_reg, int offset) :
+    base_reg(base_reg),
+    offset(offset){}
 
 //******************************************************************
 //
