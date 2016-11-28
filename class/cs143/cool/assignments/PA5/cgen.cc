@@ -31,6 +31,7 @@ static int max_tag = 0;
 static int intclasstag;
 static int stringclasstag;
 static int boolclasstag;
+static int label_postfix = 0;
 static CgenClassTableP curr_classtable;
 static CgenNodeP curr_class;
 
@@ -385,6 +386,16 @@ static int get_attr_offset(Symbol name, FeatureListP attrs)
   FeatureList::iterator it = lookup_feature_by_name(name, attrs);
   assert(it != attrs->end());
   return std::distance(attrs->begin(), it) + DEFAULT_OBJFIELDS;
+}
+
+static int get_method_offset(Symbol type, Symbol name)
+{
+  CgenNodeP node = curr_classtable->lookup_class_by_name(type);
+  assert(node);
+  FeatureListP methods = node->get_methods();
+  FeatureList::iterator it = lookup_feature_by_name(name, methods);
+  assert(it != methods->end());
+  return std::distance(methods->begin(), it);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1003,6 +1014,20 @@ void attr_class::code_protObj(ostream &str)
   str << endl;
 }
 
+CgenNodeP CgenClassTable::lookup_class_by_name(Symbol name)
+{
+  if (name == SELF_TYPE) {
+    return curr_class;
+  }
+
+  for(List<CgenNode> *l = nds; l; l = l->tl()) {
+    if (l->hd()->get_name() == name) {
+      return l->hd();
+    }
+  }
+  return NULL;
+}
+
 CgenNodeP CgenClassTable::lookup_class_by_tag(int tag)
 {
 	for(List<CgenNode> *l = nds; l; l = l->tl()) {
@@ -1276,10 +1301,49 @@ SymbolInfo::SymbolInfo(char *base_reg, int offset) :
 void assign_class::code(ostream &s) {
 }
 
+/* Dispatch of typpe expr@type_name.name(actual) */
+void static dispatch_common(Expression expr, Symbol type_name, Symbol name,
+  Expressions actual, ostream &str)
+{
+  /* Evaluate all actual parameters and push them on stack
+     Evaluation Order Semantics: x1, x2, xn
+     Push Order Semantics: Same as formal parameter
+  */
+  for(int i = actual->first(); actual->more(i); i = actual->next(i)){
+    actual->nth(i)->code(str);
+    emit_push(ACC, str);
+  }
+
+  /* Evaluate exression */
+  expr->code(str);
+
+  // Branch to function definition
+  emit_bne(ACC, ZERO, label_postfix, str);
+  StringEntry *entry = stringtable.lookup_string(curr_class->get_filename()->get_string());
+  assert(entry);
+  // Load filename in ACC and line number in T1
+  emit_load_string(ACC, entry, str);
+  emit_load_imm(T1, curr_class->get_line_number(), str);
+  emit_jal("_dispatch_abort", str); // Call will not be returned here
+
+  emit_label_def(label_postfix, str);
+
+  if (type_name == No_type) {
+    type_name = expr->get_type();
+  }
+  emit_partial_load_address(T1, str); emit_disptable_ref(type_name, str); str << endl;
+
+  int offset = get_method_offset(type_name, name);
+  emit_load(T1, offset, T1, str);
+  emit_jalr(T1, str);
+  label_postfix++;
+}
 void static_dispatch_class::code(ostream &s) {
+  dispatch_common(expr, type_name, name, actual, s);
 }
 
 void dispatch_class::code(ostream &s) {
+  dispatch_common(expr, No_type, name, actual, s);
 }
 
 void cond_class::code(ostream &s) {

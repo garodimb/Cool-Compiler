@@ -49,9 +49,10 @@ private:
    void build_inheritance_tree();
    void set_relations(CgenNodeP nd);
    void first_pass();
-   CgenNodeP lookup_class_by_tag(int tag);
 public:
    CgenClassTable(Classes, ostream& str);
+   CgenNodeP lookup_class_by_tag(int tag);
+   CgenNodeP lookup_class_by_name(Symbol name);
    void code();
    CgenNodeP root();
 };
