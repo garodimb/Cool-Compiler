@@ -74,7 +74,8 @@
 #define T3   "$t3"		// Temporary 3 
 #define SP   "$sp"		// Stack pointer 
 #define FP   "$fp"		// Frame pointer 
-#define RA   "$ra"		// Return address 
+#define RA   "$ra"		// Return address
+#define S1   "$s1"		// Callee save register
 
 //
 // Opcodes

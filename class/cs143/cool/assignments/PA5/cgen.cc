@@ -1474,6 +1474,36 @@ void bool_const_class::code(ostream& s)
 }
 
 void new__class::code(ostream &s) {
+	if(type_name == SELF_TYPE){
+    // Load class table address
+    emit_load_address(T1, CLASSOBJTAB, s);
+
+    // Load class tag
+    emit_load(T2, TAG_OFFSET, SELF, s);
+
+    // Obj_Prot = CLASSOBJTAB + 2 * WORD_SIZE(4)
+    emit_sll(T2, T2, 3, s); // Multiply Tag by 8(shift left logical)
+
+    /* Not used S1 before this, so no need to preserve */
+    emit_addu(S1, T1, T2, s); // Obj_Prot reference in S1
+    emit_load(ACC, 0, S1, s); // Obj_Prot in ACC
+    emit_copy(s); // Copy Obj_prot
+    emit_load(T1, 1, S1, s); // Obj_init in T1
+    emit_jalr(T1, s); // Initialize object
+	}
+	else if( type_name == Bool){
+		// Load false Bool object address in ACC
+		emit_load_bool( ACC, falsebool, s);
+	}
+	else{
+		// Copy prototype object
+		emit_partial_load_address(ACC, s);
+		emit_protobj_ref(type_name,s);  s << endl;
+		emit_copy(s);
+		// Initialize prototype object
+		s << JAL; emit_init_ref(type_name, s);
+		s << endl;
+	}
 }
 
 void isvoid_class::code(ostream &s) {

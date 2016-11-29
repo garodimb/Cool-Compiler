@@ -3,15 +3,18 @@
     as possible.
  *)
 
-class Main inherits IO{
-	sum() : Int {
-		1 + (5 + (6 + ( 7 + (8 + (9 * (10 + ( 11 + (12+13))))))))
+class D inherits IO{
+	call_me() : IO {
+		out_string("This is D")
 	};
+};
+
+class Main inherits D{
 
 	main():IO {
   		{
 			out_string("Hello world\n");
-			out_int(sum());
+			(new SELF_TYPE).call_me();
 			out_string("\n");
 		}
   	};
