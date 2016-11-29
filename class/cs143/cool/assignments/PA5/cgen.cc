@@ -905,12 +905,15 @@ void CgenClassTable::first_pass()
 void CgenNode::first_pass()
 {
 	set_tag();
+  /* Make sure there is some methods in parent class */
 	if(parentnd && parentnd->get_methods()){
+    /* Take parent methods and add them to child */
 		methods = new FeatureList(parentnd->get_methods()->begin(),parentnd->get_methods()->end());
 	}
 	else{
 		methods = new FeatureList();
 	}
+  /* Make sure there is some attrs in parent class */
 	if(parentnd && parentnd->get_attrs()){
 		attrs = new FeatureList(parentnd->get_attrs()->begin(),parentnd->get_attrs()->end());
 	}
@@ -921,7 +924,7 @@ void CgenNode::first_pass()
 	/* Process all the features of class(attrs,methods). */
   for(int i = features->first(); features->more(i); i = features->next(i)) {
 		features->nth(i)->first_pass(methods, attrs);
-		features->nth(i)->set_parent(name);
+		features->nth(i)->set_parent(name); // Set Owner class of feature
 	}
 
   /* Add all symbols from parent as well as this class to
@@ -932,6 +935,8 @@ void CgenNode::first_pass()
   int offset = 0;
   if(cgen_debug)
     cout << "[INFO] Creating Symbol table for " << name << " class" << endl;
+
+  /* Add attrs and it's offset from SELF to symbol table */
   for(FeatureList::iterator it = attrs->begin(); it != attrs->end(); ++it){
     if(cgen_debug)
       cout << "[INFO] Symbol: " << name << "." << (*it)->get_name() << ", Address: "
@@ -940,6 +945,7 @@ void CgenNode::first_pass()
     ++offset;
   }
 
+  /* Process all childs */
 	for(List<CgenNode> *l = children; l; l = l->tl()) {
 		l->hd()->first_pass();
 	}
@@ -1106,10 +1112,12 @@ void CgenNode::code_dispTab(ostream &str)
 {
 	emit_disptable_ref(name,str);
 	str << LABEL;
+  /* Add entry of all methods in dispatch table */
 	for(FeatureList::iterator it = methods->begin(); it != methods->end(); ++it){
 		(*it)->code_dispTab(str);
 	}
 
+  /* Process childrens */
 	for(List<CgenNode> *l = children; l; l = l->tl()) {
 		l->hd()->code_dispTab(str);
 	}
@@ -1118,6 +1126,8 @@ void CgenNode::code_dispTab(ostream &str)
 /* Dispatch table entry, reference to method */
 void method_class::code_dispTab(ostream &str)
 {
+  /* Emit dispatch table reference for method along
+     with owner class name */
 	str << WORD; emit_method_ref(parent,name,str);
 	str << endl;
 }
@@ -1387,6 +1397,19 @@ void static arith_common(Expression e1, Expression e2, ostream &s)
 }
 
 void cond_class::code(ostream &s) {
+  int label = label_postfix;
+  label_postfix += 2;
+
+  pred->code(s);
+  emit_load_bool(T1, truebool, s);
+  emit_bne(ACC, T1, label, s);
+
+  then_exp->code(s);
+  emit_branch(label + 1, s);
+
+  emit_label_def(label, s);
+  else_exp->code(s);
+  emit_label_def(label + 1, s);
 }
 
 void loop_class::code(ostream &s) {
