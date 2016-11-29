@@ -1443,16 +1443,86 @@ void neg_class::code(ostream &s) {
 	emit_store_int(T1, ACC, s); // Store value
 }
 
-void lt_class::code(ostream &s) {
+void lt_common(ostream &s)
+{
+  // False branch
+  emit_load_bool(ACC, falsebool, s);
+  emit_branch(label_postfix + 1, s);
+
+  // True branch
+  emit_label_def(label_postfix, s);
+  emit_load_bool(ACC, truebool, s);
+  emit_label_def(label_postfix + 1, s); // branch end
+  label_postfix += 2;
 }
 
-void eq_class::code(ostream &s) {
+void lt_class::code(ostream &s)
+{
+  arith_common(e1, e2, s); // Evaluate e1 and e2
+  emit_blt(T1, T2, label_postfix, s); // Branch
+  lt_common(s);
 }
 
-void leq_class::code(ostream &s) {
+void eq_class::code(ostream &s)
+{
+  // Evaluate e1 and push result on stack
+  e1->code(s);
+  emit_push(ACC,s);
+  local_attr_offset++;
+
+  // Evaluate e2 and store result in T2
+  e2->code(s);
+  emit_move(T2, ACC, s);
+
+  // Load result of e1 in T1
+  emit_load(T1, 1, SP, s);
+  emit_addiu(SP, SP, WORD_SIZE, s);
+  local_attr_offset--;
+
+  // Load true value in ACC
+  emit_load_bool(ACC, truebool, s);
+
+  // Check T1 == T2
+  emit_beq(T1, T2, label_postfix, s);
+
+  /* If values are not same, compare
+     if they are of basic type and of
+     same type. For more see cool-runtime
+     doc
+  */
+  emit_load_bool(A1, falsebool, s);
+  emit_jal("equality_test", s);
+  emit_label_def(label_postfix, s);
+  label_postfix++;
 }
 
-void comp_class::code(ostream &s) {
+void leq_class::code(ostream &s)
+{
+  arith_common(e1, e2, s); // Evaluate e1 and e2
+  emit_bleq(T1, T2, label_postfix, s); // Branch
+  lt_common(s);
+}
+
+void comp_class::code(ostream &s)
+{
+  // Evaluate e1
+  e1->code(s);
+
+  // Check whether e1 is true or false
+  emit_load_bool(T1, truebool, s);
+  emit_beq(ACC, T1, label_postfix, s);
+
+  // If e1 is false, return true
+  emit_load_bool(ACC, truebool, s);
+  emit_branch(label_postfix + 1, s);
+
+  // If e1 is true, return false
+  emit_label_def(label_postfix, s);
+  emit_load_bool(ACC, falsebool, s);
+
+  // End branch
+  emit_label_def(label_postfix + 1, s);
+  label_postfix +=2;
 }
 
 void int_const_class::code(ostream& s)  

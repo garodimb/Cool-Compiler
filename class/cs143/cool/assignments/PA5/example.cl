@@ -10,11 +10,12 @@ class D inherits IO{
 };
 
 class Main inherits D{
-
+	a : Bool;
 	main():IO {
   		{
 			out_string("Hello world\n");
 			(new SELF_TYPE).call_me();
+			a <- (new D) = (new D);
 			out_string("\n");
 		}
   	};
