@@ -1403,6 +1403,47 @@ void block_class::code(ostream &s) {
 }
 
 void let_class::code(ostream &s) {
+  // Evaluate init expr
+  init->code(s);
+
+  /* Get symbol table and add symbol
+     local_attr_offset keeps track of offset from FP to SP
+  */
+  CgenSymTable *symtable = curr_class->get_symtable();
+  symtable->enterscope();
+  symtable->addid(identifier, new SymbolInfo(FP, -local_attr_offset));
+
+  /* If there is no init value then load appropriate
+     value based on type_decl. If init value not given(no_expr),
+     evaluate of init will return 0 in ACC
+  */
+  if (init->type == No_type || init->type == NULL){
+    if(type_decl == Int){
+      IntEntry *int_entry = inttable.lookup_string("0");
+      assert(int_entry);
+      emit_load_int(ACC, int_entry, s);
+    }
+    else if(type_decl == Str){
+      StringEntry *str_entry = stringtable.lookup_string("");
+      assert(str_entry);
+      emit_load_string(ACC, str_entry, s);
+    }
+    else if(type_decl == Bool){
+      emit_load_bool( ACC, falsebool, s);
+    }
+  }
+
+  // Push attr on stack
+  emit_push( ACC, s);
+  local_attr_offset++;
+
+  // Evaluate body of let
+  body->code(s);
+
+  // Pop attr from stack
+  emit_addiu(SP, SP, WORD_SIZE, s);
+  local_attr_offset--;
+  symtable->exitscope();
 }
 
 void plus_class::code(ostream &s) {

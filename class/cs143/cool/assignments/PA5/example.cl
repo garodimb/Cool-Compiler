@@ -12,6 +12,7 @@ class D inherits IO{
 class Main inherits D{
 	a : Bool;
 	main():IO {
+		let x : Int in
   		{
 			out_string("Hello world\n");
 			(new SELF_TYPE).call_me();
