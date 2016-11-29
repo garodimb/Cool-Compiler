@@ -32,6 +32,7 @@ static int intclasstag;
 static int stringclasstag;
 static int boolclasstag;
 static int label_postfix = 0;
+static int local_attr_offset = 1; // Keep track of number of local attrs visible
 static CgenClassTableP curr_classtable;
 static CgenNodeP curr_class;
 
@@ -361,6 +362,12 @@ static void emit_gc_check(char *source, ostream &s)
   if (source != (char*)A1) emit_move(A1, source, s);
   s << JAL << "_gc_check" << endl;
 }
+
+static void emit_copy(ostream &s)
+{
+	s << JAL; emit_method_ref(Object, copy, s); s << endl;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -1299,8 +1306,8 @@ SymbolInfo::SymbolInfo(char *base_reg, int offset) :
 //*****************************************************************
 
 void assign_class::code(ostream &s) {
-	expr->code(str);
-	SymbolInfo *symbol_info = curr_class->get_symtable->lookup(name);
+	expr->code(s);
+	SymbolInfo *symbol_info = curr_class->get_symtable()->lookup(name);
 	assert(symbol_info);
 	emit_store(ACC, symbol_info->get_offset(), symbol_info->get_base_reg(),s);
 }
@@ -1360,6 +1367,25 @@ void dispatch_class::code(ostream &s) {
   dispatch_common(expr, No_type, name, actual, s);
 }
 
+/*
+	Evaluate expression e1 and e2 and load it's int values in
+	T1 and T2. Also it copies result of e2(Int Object). This can
+	be used as temporary storage to store result of arith expr
+*/
+void static arith_common(Expression e1, Expression e2, ostream &s)
+{
+	e1->code(s); // Evaluate e1
+	emit_fetch_int(ACC, ACC, s); // Load int result in ACC
+	emit_push(ACC, s); // Push result on stack
+	local_attr_offset++;
+	e2->code(s); // EValuate e2
+	emit_copy(s); // Make copy of e2 result object(Int)
+	emit_load(T1, 1, SP, s); // Load int value of e1
+	emit_addiu(SP, SP, WORD_SIZE, s); // Pop from stack
+	local_attr_offset--;
+	emit_fetch_int(T2, ACC, s); // Load int result of e2
+}
+
 void cond_class::code(ostream &s) {
 }
 
@@ -1370,24 +1396,51 @@ void typcase_class::code(ostream &s) {
 }
 
 void block_class::code(ostream &s) {
+	for(int i = body->first(); body->more(i);
+		i = body->next(i)){
+		body->nth(i)->code(s);
+	}
 }
 
 void let_class::code(ostream &s) {
 }
 
 void plus_class::code(ostream &s) {
+	arith_common(e1,e2,s); // Evaluate e1 and e2
+
+	// add will cause trap on overflow, so use addu
+	emit_addu(T1, T1, T2, s); // Add e1 and e2
+	// store result in temporary created by arith_common
+	emit_store_int(T1, ACC, s);
 }
 
 void sub_class::code(ostream &s) {
+	arith_common(e1,e2,s); // Evaluate e1 and e2
+	emit_sub(T1, T1, T2, s); // Sub e1 and e2
+	// store result in temporary created by arith_common
+	emit_store_int(T1, ACC, s);
 }
 
 void mul_class::code(ostream &s) {
+	arith_common(e1,e2,s); // Evaluate e1 and e2
+	emit_mul(T1, T1, T2, s); // Mul e1 and e2
+	// store result in temporary created by arith_common
+	emit_store_int(T1, ACC, s);
 }
 
 void divide_class::code(ostream &s) {
+	arith_common(e1,e2,s); // Evaluate e1 and e2
+	emit_div(T1, T1, T2, s); // div e1 and e2
+	// store result in temporary created by arith_common
+	emit_store_int(T1, ACC, s);
 }
 
 void neg_class::code(ostream &s) {
+	e1->code(s); // Evaluate e1
+	emit_copy(s); // Copy e1(Int Obj) as temp
+	emit_fetch_int(T1, ACC, s); // Load int value
+	emit_neg(T1, T1, s); // Negate value
+	emit_store_int(T1, ACC, s); // Store value
 }
 
 void lt_class::code(ostream &s) {
@@ -1427,6 +1480,7 @@ void isvoid_class::code(ostream &s) {
 }
 
 void no_expr_class::code(ostream &s) {
+	emit_load_imm(ACC, 0, s);
 }
 
 void object_class::code(ostream &s) {
