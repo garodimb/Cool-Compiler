@@ -1507,6 +1507,23 @@ void new__class::code(ostream &s) {
 }
 
 void isvoid_class::code(ostream &s) {
+  // Evaluate e1
+  e1->code(s);
+
+  // If void(i.e. result zero) branch to label
+  emit_beq(ACC, ZERO, label_postfix, s);
+
+  // False branch(non-void expr)
+  emit_load_bool(ACC, falsebool, s);
+  emit_branch(label_postfix + 1, s); // Jump to end of label
+
+  // True branch(void expr)
+  emit_label_def(label_postfix, s);
+  emit_load_bool(ACC, truebool, s);
+
+  // End of branching
+  emit_label_def(label_postfix + 1, s);
+  label_postfix += 2;
 }
 
 void no_expr_class::code(ostream &s) {
