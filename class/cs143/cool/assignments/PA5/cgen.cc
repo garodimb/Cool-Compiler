@@ -899,11 +899,13 @@ void CgenNode::set_parentnd(CgenNodeP p)
 
 void CgenClassTable::first_pass()
 {
-	root()->first_pass();
+  curr_classtable = this;
+  root()->first_pass();
 }
 
 void CgenNode::first_pass()
 {
+  curr_class = this;
 	set_tag();
   /* Make sure there is some methods in parent class */
 	if(parentnd && parentnd->get_methods()){
@@ -948,6 +950,7 @@ void CgenNode::first_pass()
   /* Process all childs */
 	for(List<CgenNode> *l = children; l; l = l->tl()) {
 		l->hd()->first_pass();
+    max_class_tag = std::max(max_class_tag, l->hd()->get_max_class_tag());
 	}
 }
 
@@ -957,6 +960,9 @@ void method_class::first_pass(FeatureListP methods, FeatureListP attrs)
 	if(it == methods->end()){
 		methods->push_back(this);
 	}
+  else{
+    *it = this;
+  }
 }
 
 void attr_class::first_pass(FeatureListP methods, FeatureListP attrs)
@@ -967,6 +973,7 @@ void attr_class::first_pass(FeatureListP methods, FeatureListP attrs)
 void CgenNode::set_tag()
 {
 	tag = max_tag;
+  max_class_tag = max_tag;
 	++max_tag;
 	if(name==Int){
 		intclasstag = tag;
@@ -977,6 +984,16 @@ void CgenNode::set_tag()
 	else if(name==Bool){
 		boolclasstag = tag;
 	}
+}
+
+void branch_class::set_tag(int tag)
+{
+  this->tag = tag;
+}
+
+void branch_class::set_max_class_tag(int max_class_tag)
+{
+  this->max_class_tag = max_class_tag;
 }
 
 void CgenClassTable::code_protObj()
@@ -1185,6 +1202,8 @@ void method_class::code_class_method(ostream &str)
       new SymbolInfo(FP, offset));
   }
   // Generate code for method body
+  if(cgen_debug)
+    str << "# Code for method body" << endl;
   expr->code(str);
   symtable->exitscope();
   callee_callseq_ret(formals->len(),str);
@@ -1413,9 +1432,128 @@ void cond_class::code(ostream &s) {
 }
 
 void loop_class::code(ostream &s) {
+  int label = label_postfix;
+  label_postfix += 2;
+
+  // Start of loop
+  emit_label_def(label, s);
+  pred->code(s);
+  emit_load_bool(T1, falsebool, s);
+
+  // If pred is false go to end of loop
+  emit_beq(ACC, T1, label + 1, s);
+  body->code(s);
+  emit_branch(label, s); // Goto label
+
+  // end of loop
+  emit_label_def(label + 1, s);
+  emit_load_imm(ACC, 0, s);
+}
+
+/* Compare two cases and return whether first
+   is greater than second(tag1>tag2)]
+*/
+bool greater_case(Case case1, Case case2)
+{
+  return case1->get_tag() > case2->get_tag();
 }
 
 void typcase_class::code(ostream &s) {
+  // Calculate labels required
+  int label = label_postfix;
+  int end_label = label_postfix + cases->len() + 2;
+  label_postfix += cases->len() + 3;
+
+  // Evaluate expression and check for void
+  expr->code(s);
+  emit_bne(ACC, ZERO, label, s);
+
+  // Case on void, abort the program
+  StringEntry *str_entry = stringtable.lookup_string(
+    curr_class->get_filename()->get_string());
+  assert(str_entry);
+  emit_load_string(ACC, str_entry, s);
+  emit_load_imm(T1, curr_class->get_line_number(), s);
+  emit_jal("_case_abort2", s);
+
+  /* Create list of cases and sort them according to
+     tag id of their declaration class
+  */
+  std::list<Case> sorted_cases;
+  Case case_ ;
+
+  // Create list
+  for(int i = cases->first(); cases->more(i);
+    i = cases->next(i)){
+    case_ = cases->nth(i);
+    CgenNodeP cgen_node = curr_classtable->lookup_class_by_name(
+      case_->get_type_decl());
+    assert(cgen_node);
+
+    //Set tags as of declared type
+    case_->set_tag(cgen_node->get_tag());
+    case_->set_max_class_tag(cgen_node->get_max_class_tag());
+    sorted_cases.push_back(case_);
+  }
+
+  // Sort cases in descending order
+  sorted_cases.sort(greater_case);
+
+  // Non-void evaluation branch of expr
+  emit_label_def(label, s);
+  label++;
+  emit_push(ACC, s); // Push result on stack
+  local_attr_offset++;
+
+  // Process all cases
+  for(std::list<Case>::iterator it = sorted_cases.begin();
+    it != sorted_cases.end(); ++it){
+
+    case_ = *it;
+    emit_label_def(label, s); // Add label to case
+    label++;
+    emit_load(ACC, 1, SP, s); // Load result of expr
+    emit_load(T1, TAG_OFFSET, ACC, s); // Load tag of type of expression
+
+    //If tag is outside range then move to next label[tag, max_class_tag]
+    emit_blti(T1, case_->get_tag(), label, s);
+    emit_bgti(T1, case_->get_max_class_tag(), label, s);
+
+    // Generate code for case(branch_class)
+    case_->code(s);
+    emit_branch(end_label, s); // Go to end of case block
+  }
+
+  // No matching case found, abort execution
+  emit_label_def(label, s);
+  label++;
+  emit_load(ACC, 1, SP, s); // Result of expr required for _case_abort
+  emit_jal("_case_abort", s);
+
+  // Successfully evaluated case
+  emit_label_def(end_label, s);
+  emit_addiu(SP, SP, WORD_SIZE, s);
+  local_attr_offset--;
+}
+
+void branch_class::code(ostream &s)
+{
+  // Add symbol to symbol table
+  CgenSymTable *symtable = curr_class->get_symtable();
+  symtable->enterscope();
+  symtable->addid(name, new SymbolInfo(FP, -local_attr_offset));
+
+  // Initialize symbol by the value of case expr(evaluated in typcase_class)
+  emit_push(ACC, s);
+  local_attr_offset++;
+
+  // Evaluate branch expression
+  expr->code(s);
+
+  // Pop branch symbol
+  emit_addiu(SP, SP, WORD_SIZE, s);
+  local_attr_offset--;
+  symtable->exitscope();
 }
 
 void block_class::code(ostream &s) {

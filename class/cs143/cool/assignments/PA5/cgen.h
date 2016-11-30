@@ -95,6 +95,7 @@ public:
    FeatureListP get_methods() { return methods; }
    FeatureListP get_attrs() { return attrs; }
    int get_tag() { return tag; }
+   int get_max_class_tag() { return max_class_tag; }
    CgenSymTable *get_symtable() { return symtable; }
    void first_pass();
    void code_protObj(ostream &str);
