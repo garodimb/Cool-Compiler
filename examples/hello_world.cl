@@ -1,4 +1,5 @@
 -- This program prints hello world as output
+-- This demo
 class Main{
 	--io : IO <- new IO;
 	main() : Int{
